@@ -10,11 +10,22 @@ return new class extends Migration
     {
         Schema::create('users', function (Blueprint $table) {
             $table->id();
+            // Kelajakdagi multi-tenant uchun tayyor ustun (hozircha doim config('school.id'))
+            $table->unsignedBigInteger('school_id')->default(1)->index();
+
             $table->string('firstname');
             $table->string('lastname');
+            $table->string('middlename')->nullable();
             $table->string('username')->unique();
+            $table->string('phone', 32)->nullable()->unique();
+            $table->string('email')->nullable()->unique();
             $table->string('password');
+            $table->string('avatar')->nullable();
+            $table->string('locale', 5)->default('uz');
+            $table->string('status', 20)->default('active'); // active | blocked
+            $table->timestamp('last_login_at')->nullable();
             $table->rememberToken();
+
             $table->unsignedBigInteger('created_by')->nullable();
             $table->unsignedBigInteger('updated_by')->nullable();
             $table->unsignedBigInteger('deleted_by')->nullable();
@@ -40,8 +51,8 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::dropIfExists('users');
-        Schema::dropIfExists('password_reset_tokens');
         Schema::dropIfExists('sessions');
+        Schema::dropIfExists('password_reset_tokens');
+        Schema::dropIfExists('users');
     }
 };

@@ -2,105 +2,126 @@
 
 namespace App\Services;
 
-use App\Models\Role;
 use App\Models\Permission;
+use App\Models\Role;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\DB;
 
 class RoleService
 {
-    public function getFilteredRoles(array $filters): Collection
+    /**
+     * @return Collection<int, Role>
+     */
+    public function search(array $filters): Collection
     {
-        $query = Role::withCount('permissions');
-
-        if (!empty($filters['search'])) {
-            $query->where(function ($q) use ($filters) {
-                $q->where('name', 'like', '%' . $filters['search'] . '%')
-                    ->orWhere('description', 'like', '%' . $filters['search'] . '%');
-            });
-        }
-
-        if (!empty($filters['permission'])) {
-            $query->whereHas('permissions', fn($q) => $q->where('name', $filters['permission']));
-        }
-
-        if (auth()->check() && !auth()->user()->hasRole('superadmin')) {
-            $query->where('name', '!=', 'superadmin');
-        }
-
-        return $query->get();
+        return Role::query()
+            ->withCount(['permissions', 'users'])
+            ->when($filters['search'] ?? null, fn ($q, $search) => $q->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                    ->orWhere('title', 'like', "%{$search}%")
+                    ->orWhere('description', 'like', "%{$search}%");
+            }))
+            ->when(isset($filters['is_system']), fn ($q) => $q->where('is_system', (bool) $filters['is_system']))
+            ->when($filters['permission'] ?? null, fn ($q, $permission) => $q->whereHas(
+                'permissions', fn ($q) => $q->where('permissions.name', $permission)
+            ))
+            // Superadmin rolini faqat superadmin ko'radi
+            ->unless(auth()->user()?->isSuperadmin(), fn ($q) => $q->where('name', '!=', config('authorization.super_role')))
+            ->orderBy('level')
+            ->orderBy('name')
+            ->get();
     }
 
-    public function getAllPermissions(): Collection
+    public function withDetails(Role $role): Role
     {
-        return Permission::orderBy('name')->get();
+        return $role->load('permissions')->loadCount('users');
     }
 
-    public function createRole(array $data): Role
+    public function create(array $data): Role
     {
-        $data['created_by'] = auth()->id();
-        return Role::create($data);
+        return DB::transaction(function () use ($data) {
+            $role = Role::create([
+                'name' => $data['name'],
+                'title' => $data['title'],
+                'description' => $data['description'] ?? null,
+                'level' => $data['level'] ?? 100,
+                // Yangi rollar hech qachon tizim roli bo'lmaydi
+                'is_system' => false,
+            ]);
+
+            if (! empty($data['permissions'])) {
+                $this->syncPermissions($role, $data['permissions']);
+            }
+
+            return $role->loadCount(['permissions', 'users']);
+        });
     }
 
-    public function updateRole(Role $role, array $data): bool
+    public function update(Role $role, array $data): Role
     {
-        if ($role->name === 'superadmin') {
-            abort(403, 'Superadmin rolni tahrirlash mumkin emas.');
+        $this->guardSuperRole($role);
+
+        // Tizim rolining texnik nomi o'zgarmaydi, lekin ko'rinadigan nomi tahrirlanadi
+        $payload = [
+            'title' => $data['title'] ?? $role->title,
+            'description' => $data['description'] ?? $role->description,
+            'level' => $data['level'] ?? $role->level,
+        ];
+
+        if (! $role->isProtected() && ! empty($data['name'])) {
+            $payload['name'] = $data['name'];
         }
-        $data['updated_by'] = auth()->id();
-        return $role->update($data);
-    }
 
-    public function deleteRole(Role $role): bool|null
-    {
-        if ($role->name === 'superadmin') {
-            abort(403, 'Superadmin rolni o\'chirish mumkin emas.');
+        $role->update($payload);
+
+        if (array_key_exists('permissions', $data)) {
+            $this->syncPermissions($role, $data['permissions'] ?? []);
         }
-        return $role->delete();
+
+        return $role->fresh()->loadCount(['permissions', 'users']);
     }
 
+    public function delete(Role $role): void
+    {
+        // Tizim rollarini o'chirib bo'lmaydi (model darajasida ham himoyalangan)
+        if ($role->isProtected()) {
+            abort(403, "«{$role->title}» tizim roli — uni o'chirish mumkin emas.");
+        }
+
+        if ($role->users()->exists()) {
+            abort(422, 'Bu rolga biriktirilgan foydalanuvchilar mavjud. Avval ularni boshqa rolga o\'tkazing.');
+        }
+
+        $role->delete();
+    }
+
+    /**
+     * @param  array<int, string>  $permissionNames
+     */
     public function syncPermissions(Role $role, array $permissionNames): int
     {
-        if ($role->name === 'superadmin') {
-            abort(403, 'Superadmin ruxsatlarini o\'zgartirish mumkin emas.');
-        }
+        $this->guardSuperRole($role);
 
-        foreach ($permissionNames as $name) {
-            Permission::firstOrCreate(['name' => $name]);
-        }
+        $valid = Permission::whereIn('name', $permissionNames)->pluck('name')->all();
 
-        $role->permissions()->detach();
-        foreach ($permissionNames as $name) {
-            $role->permissions()->attach($name);
-        }
+        $role->permissions()->sync($valid);
 
-        return count($permissionNames);
+        return count($valid);
     }
 
-    public function getPermissionsForRole(Role $role): array
+    public function permissionMatrix(Role $role): array
     {
         return [
-            'all'      => $this->getAllRoutePermissions(),
-            'assigned' => $role->permissions()->pluck('name')->toArray(),
+            'role' => $role->name,
+            'assigned' => $role->permissions()->pluck('permissions.name')->all(),
         ];
     }
 
-    private function getAllRoutePermissions(): array
+    /** Superadmin rolining ruxsatlari o'zgartirilmaydi — u doim hamma joyga kiradi. */
+    private function guardSuperRole(Role $role): void
     {
-        $routes = Route::getRoutes()->getRoutesByName();
-        $names  = [];
-        foreach ($routes as $name => $route) {
-            if (str_starts_with($name, 'sanctum')
-                || str_starts_with($name, 'ignition')
-                || str_starts_with($name, 'debugbar')
-                || str_starts_with($name, 'web.')
-            ) {
-                continue;
-            }
-            $perm = str_replace(['.', '_', ' '], '-', $name);
-            $names[] = $perm;
+        if ($role->isSuper()) {
+            abort(403, 'Superadmin roli o\'zgartirilmaydi — u tizimdagi barcha cheklovlardan tashqarida.');
         }
-        sort($names);
-        return array_values(array_unique($names));
     }
 }

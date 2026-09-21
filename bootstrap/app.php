@@ -1,9 +1,19 @@
 <?php
 
+use App\Http\Middleware\PermissionMiddleware;
+use App\Http\Middleware\RoleMiddleware;
+use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Auth\AuthenticationException;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Database\QueryException;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
-use App\Http\Middleware\RoleMiddleware;
+use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -13,43 +23,86 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->web(append: [
-            \App\Http\Middleware\LocaleMiddleware::class,
-            \App\Http\Middleware\PageViewAudit::class
-        ]);
-        $middleware->api(append: [
-            \App\Http\Middleware\PageViewAudit::class
-        ]);
-
         $middleware->alias([
+            'permission' => PermissionMiddleware::class,
             'role' => RoleMiddleware::class,
         ]);
-
-        $middleware->redirectTo(function ($request) {
-            $locale = $request->segment(1);
-            if (!in_array($locale, ['uz', 'ru', 'en'])) {
-                $locale = 'uz';
-            }
-            return route('login', ['locale' => $locale]);
-        });
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        $exceptions->render(function (\Illuminate\Validation\ValidationException $e, \Illuminate\Http\Request $request) {
+        $exceptions->render(function (ValidationException $e, Request $request) {
             if ($request->is('api/*') || $request->expectsJson()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Validation errors',
+                    'message' => 'Validatsiya xatosi',
                     'errors' => $e->errors(),
                 ], 422);
             }
         });
 
-        $exceptions->render(function (\Illuminate\Auth\AuthenticationException $e, \Illuminate\Http\Request $request) {
+        $exceptions->render(function (AuthenticationException $e, Request $request) {
             if ($request->is('api/*') || $request->expectsJson()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Unauthenticated or Invalid Token.',
+                    'message' => 'Avtorizatsiyadan o\'tilmagan yoki token yaroqsiz.',
                 ], 401);
+            }
+        });
+
+        $exceptions->render(function (AuthorizationException $e, Request $request) {
+            if ($request->is('api/*') || $request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $e->getMessage() ?: 'Ruxsat yo\'q.',
+                ], 403);
+            }
+        });
+
+        $exceptions->render(function (ModelNotFoundException $e, Request $request) {
+            if ($request->is('api/*') || $request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Ma\'lumot topilmadi.',
+                ], 404);
+            }
+        });
+
+        $exceptions->render(function (NotFoundHttpException $e, Request $request) {
+            if ($request->is('api/*') || $request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Manzil topilmadi.',
+                ], 404);
+            }
+        });
+
+        // Takroriy yozuv (unique) — 422, foydalanuvchi tushunadigan xabar bilan
+        $exceptions->render(function (UniqueConstraintViolationException $e, Request $request) {
+            if ($request->is('api/*') || $request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Bunday yozuv allaqachon mavjud (nom, telefon yoki kod takrorlanmoqda).',
+                ], 422);
+            }
+        });
+
+        // Baza xatolari mijozga SQL matni bilan chiqmaydi — jurnalga yoziladi, toza xabar qaytadi
+        $exceptions->render(function (QueryException $e, Request $request) {
+            if ($request->is('api/*') || $request->expectsJson()) {
+                report($e);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Ma\'lumotlar bazasi xatosi. Iltimos, qayta urinib ko\'ring.',
+                ], 500);
+            }
+        });
+
+        $exceptions->render(function (HttpExceptionInterface $e, Request $request) {
+            if ($request->is('api/*') || $request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $e->getMessage() ?: 'Xatolik yuz berdi.',
+                ], $e->getStatusCode());
             }
         });
     })->create();

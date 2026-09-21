@@ -2,43 +2,70 @@
 
 namespace Database\Seeders;
 
-use App\Models\Role;
 use App\Models\User;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
 
+/**
+ * Tizim akkauntlari: superadmin, direktor (admin) va buxgalter.
+ * O'qituvchi/o'quvchi/ota-ona akkauntlari o'z seeder'larida yaratiladi.
+ */
 class UserSeeder extends Seeder
 {
-    use WithoutModelEvents;
+    public const DEFAULT_PASSWORD = 'parol123';
 
-    // Database\Seeders\UserSeeder.php ichida
     public function run(): void
     {
-        $superadminRole = Role::firstOrCreate(['name' => 'superadmin'], [
-            'type' => 0,
-            'description' => 'Tizim super administratori',
-        ]);
+        $accounts = [
+            [
+                'username' => 'superadmin',
+                'firstname' => 'Ismoil',
+                'lastname' => 'Usmonov',
+                'middlename' => 'Dilshod o`g`li',
+                'phone' => '+998880072117',
+                'email' => 'superadmin@maktab.uz',
+                'password' => 'ismoil_007u',
+                'roles' => ['superadmin'],
+            ],
+            [
+                'username' => 'direktor',
+                'firstname' => 'Anvar',
+                'lastname' => 'Toshmatov',
+                'middlename' => 'Solijonovich',
+                'phone' => '+998901234567',
+                'email' => 'direktor@maktab.uz',
+                'password' => self::DEFAULT_PASSWORD,
+                'roles' => ['admin'],
+            ],
+            [
+                'username' => 'buxgalter',
+                'firstname' => 'Nilufar',
+                'lastname' => 'Qodirova',
+                'middlename' => 'Baxtiyorovna',
+                'phone' => '+998935556677',
+                'email' => 'buxgalteriya@maktab.uz',
+                'password' => self::DEFAULT_PASSWORD,
+                'roles' => ['accountant'],
+            ],
+        ];
 
-        $guardRole = Role::firstOrCreate(['name' => 'guard'], [
-            'type' => 1,
-            'description' => 'Oddiy foydalanuvchi',
-        ]);
+        foreach ($accounts as $account) {
+            $roles = $account['roles'];
+            unset($account['roles']);
 
-        $superadmin = User::firstOrCreate(['username' => 'superadmin'], [
-            'firstname' => 'Superadmin',
-            'lastname'  => 'Adminov',
-            'password'  => bcrypt('superadmin007'),
-        ]);
+            $user = User::updateOrCreate(
+                ['username' => $account['username']],
+                array_merge($account, [
+                    'password' => Hash::make($account['password']),
+                    'school_id' => config('school.id'),
+                    'status' => 'active',
+                    'locale' => 'uz',
+                ])
+            );
 
-        $guard = User::firstOrCreate(['username' => 'guard'], [
-            'firstname' => 'Qorovul',
-            'lastname'  => "Qo'riqchiboyev",
-            'password'  => bcrypt('guard007'),
-        ]);
+            $user->roles()->sync($roles);
+        }
 
-        $superadmin->roles()->sync(['superadmin']);
-        $guard->roles()->sync(['guard']);
-
-        $this->command->info('✅ Rollar foydalanuvchilarga muvaffaqiyatli biriktirildi.');
+        $this->command?->info('✅ 3 ta tizim akkaunti yaratildi (superadmin / direktor / buxgalter).');
     }
 }

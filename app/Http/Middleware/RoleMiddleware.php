@@ -2,35 +2,31 @@
 
 namespace App\Http\Middleware;
 
-use App\Console\Helpers\PermissionHelper;
-use App\Models\User;
 use Closure;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Route;
+use Symfony\Component\HttpFoundation\Response;
 
+/**
+ * Aniq rollarni talab qiladi: `->middleware('role:admin,accountant')`.
+ * Superadmin doim o'tadi.
+ */
 class RoleMiddleware
 {
-
-    public function handle(Request $request, Closure $next)
+    public function handle(Request $request, Closure $next, string ...$roles): Response
     {
-        $currentRoute = Route::getCurrentRoute();
-        if (! in_array('role', $currentRoute->middleware())) {
-            return $next($request);
-        }
-        $user = $this->user();
+        $user = $request->user();
 
-        $route = PermissionHelper::routeToPermissionName($currentRoute);
-        if ($user?->hasRole('superadmin')) {
-            return $next($request);
+        if (! $user) {
+            return response()->json(['success' => false, 'message' => 'Avtorizatsiyadan o\'tilmagan.'], 401);
         }
-        if ($user?->can($route)) {
-            return $next($request);
-        }
-        return response()->json(['message' => 'not_allowed'], 403);
-    }
 
-    protected function user(): ?User
-    {
-        return request()->user();
+        if ($user->isSuperadmin() || $user->hasRole($roles)) {
+            return $next($request);
+        }
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Bu bo\'lim uchun ruxsat yo\'q.',
+        ], 403);
     }
 }

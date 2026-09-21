@@ -1,5 +1,11 @@
 <?php
 
+use App\Models\User;
+use Database\Seeders\PermissionSeeder;
+use Database\Seeders\RoleSeeder;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
+
 /*
 |--------------------------------------------------------------------------
 | Test Case
@@ -11,9 +17,11 @@
 |
 */
 
-pest()->extend(Tests\TestCase::class)
- // ->use(Illuminate\Foundation\Testing\RefreshDatabase::class)
+pest()->extend(TestCase::class)
+    ->use(RefreshDatabase::class)
     ->in('Feature');
+
+require_once __DIR__.'/AcademyHelpers.php';
 
 /*
 |--------------------------------------------------------------------------
@@ -41,7 +49,26 @@ expect()->extend('toBeOne', function () {
 |
 */
 
-function something()
+/**
+ * Tizim rollari va route'lardan generatsiya qilingan ruxsatlarni tayyorlaydi.
+ */
+function seedRbac(): void
 {
-    // ..
+    test()->seed(RoleSeeder::class);
+    test()->seed(PermissionSeeder::class);
+}
+
+/**
+ * Berilgan rol(lar) bilan foydalanuvchi yaratib, uni autentifikatsiya qiladi.
+ *
+ * @param  string|array<int, string>  $roles
+ */
+function actingAsUser(string|array $roles = ['admin']): User
+{
+    $user = User::factory()->create();
+    $user->roles()->sync((array) $roles);
+
+    test()->actingAs($user, 'sanctum');
+
+    return $user;
 }

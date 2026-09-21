@@ -8,9 +8,14 @@ return new class extends Migration
 {
     public function up(): void
     {
+        // Permission'lar route'lardan avtomatik generatsiya qilinadi:
+        // `php artisan permissions:sync`
         Schema::create('permissions', function (Blueprint $table) {
-            $table->string('name')->primary();
-            // No timestamps ($timestamps = false on Permission model)
+            $table->string('name', 128)->primary();  // masalan: student-index
+            $table->string('group', 64)->index();    // masalan: student
+            $table->string('title')->nullable();     // UI uchun tavsif
+            $table->string('method', 16)->nullable();
+            $table->string('uri')->nullable();
         });
     }
 

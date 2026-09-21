@@ -2,37 +2,24 @@
 
 namespace App\Console\Commands;
 
+use App\Support\PermissionHelper;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Route;
 
 class RouteList extends Command
 {
-    /**
-     * The name and signature of the console command.
-     *
-     * @var string
-     */
-    protected $signature = 'app:route-list';
+    protected $signature = 'permissions:list';
 
-    /**
-     * The console command description.
-     *
-     * @var string
-     */
-    protected $description = 'Command description';
+    protected $description = 'Route → permission moslik jadvalini ko\'rsatadi';
 
-    /**
-     * Execute the console command.
-     */
-    public function handle()
+    public function handle(): int
     {
-        $routes = Route::getRoutes()->getRoutes();
-        foreach ($routes as $route) {
-            $middlewares = json_encode($route->middleware());
-            if (str_contains($middlewares, 'query-param')) {
-                $this->info("<fg=yellow>{$route->uri}   <fg=red>" . $middlewares);
-                // echo  . $middlewares . "\n";
-            }
-        }
+        $rows = collect(PermissionHelper::collectFromRoutes())
+            ->map(fn ($p) => [$p['group'], $p['name'], $p['method'], '/'.ltrim($p['uri'], '/')])
+            ->all();
+
+        $this->table(['Guruh', 'Permission', 'Method', 'URI'], $rows);
+        $this->info('Jami: '.count($rows));
+
+        return self::SUCCESS;
     }
 }

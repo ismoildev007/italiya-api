@@ -2,50 +2,80 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\StoreUserRequest;
+use App\Http\Requests\User\IndexUserRequest;
+use App\Http\Requests\User\ResetPasswordRequest;
+use App\Http\Requests\User\StoreUserRequest;
+use App\Http\Requests\User\SyncRolesRequest;
+use App\Http\Requests\User\UpdateStatusRequest;
+use App\Http\Requests\User\UpdateUserRequest;
+use App\Http\Resources\UserResource;
 use App\Models\User;
 use App\Services\UserService;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 
 class UserController extends Controller
 {
     public function __construct(
-        private readonly UserService $userService
+        private readonly UserService $users,
     ) {}
 
-    public function index(): JsonResponse
+    public function index(IndexUserRequest $request): JsonResponse
     {
-        return response()->json($this->userService->getAll());
+        return $this->ok(UserResource::collection(
+            $this->users->paginate($request->filters(), $request->perPage())
+        ));
     }
 
     public function store(StoreUserRequest $request): JsonResponse
     {
-        $user = $this->userService->create($request->validated());
-
-        return response()->json($user, 201);
+        return $this->created(
+            new UserResource($this->users->create($request->validated())),
+            'Foydalanuvchi yaratildi.'
+        );
     }
 
     public function show(User $user): JsonResponse
     {
-        return response()->json($this->userService->getOne($user));
+        return $this->ok(new UserResource($user->load('roles')));
     }
 
-    public function update(Request $request, User $user): JsonResponse
+    public function update(UpdateUserRequest $request, User $user): JsonResponse
     {
-        $validated = $request->validate([
-            'name'     => 'sometimes|string|max:255',
-            'email'    => 'sometimes|string|email|max:255|unique:users,email,' . $user->id,
-            'password' => 'sometimes|string|min:8',
-        ]);
-
-        return response()->json($this->userService->update($user, $validated));
+        return $this->updated(
+            new UserResource($this->users->update($user, $request->validated())),
+            'Foydalanuvchi yangilandi.'
+        );
     }
 
     public function destroy(User $user): JsonResponse
     {
-        $this->userService->delete($user);
+        $this->users->delete($user);
 
-        return response()->json(null, 204);
+        return $this->deleted('Foydalanuvchi o\'chirildi.');
+    }
+
+    /** Akkauntni bloklash / blokdan chiqarish */
+    public function toggleStatus(UpdateStatusRequest $request, User $user): JsonResponse
+    {
+        return $this->updated(
+            new UserResource($this->users->setStatus($user, $request->validated()['status'])->load('roles')),
+            'Holat yangilandi.'
+        );
+    }
+
+    /** Administrator tomonidan parolni tiklash */
+    public function resetPassword(ResetPasswordRequest $request, User $user): JsonResponse
+    {
+        $this->users->resetPassword($user, $request->validated()['password']);
+
+        return $this->updated(null, 'Parol tiklandi.');
+    }
+
+    /** Foydalanuvchi rollarini almashtirish */
+    public function syncRoles(SyncRolesRequest $request, User $user): JsonResponse
+    {
+        $this->users->syncRoles($user, $request->validated()['roles']);
+
+        return $this->updated(new UserResource($user->load('roles')), 'Rollar yangilandi.');
     }
 }

@@ -1,59 +1,215 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Italiya Akademiyasi — LMS Backend (Laravel 12 + Sanctum)
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Italyan tili o'quv markazi uchun to'liq platforma (mockup: `index (20).html`).
+CEFR darajalari (A1–C2), IELTS uslubidagi 4 ko'nikma (Listening / Reading / Writing / Speaking),
+AI bilan test va darslik generatsiyasi, ovozli lug'at (it ↔ uz/en/ru), so'zlashuv o'yinlari,
+uy ishi, Zoom darslar, oylik sertifikat, ikkita Telegram bot va moliya/qarzdorlik.
 
-## About Laravel
+Har bir markaz **alohida serverga, alohida bazaga** o'rnatiladi (white-label).
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+---
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## Tez ishga tushirish
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+```bash
+composer install
+cp .env.example .env
+php artisan key:generate
 
-## Learning Laravel
+# Lokal sinov: DB_CONNECTION=sqlite (touch database/database.sqlite) yoki PostgreSQL/MySQL
+php artisan migrate:fresh --seed     # schema + to'liq demo ma'lumotlar
+php artisan storage:link             # audio/fayllar uchun
+php artisan serve
+```
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+API: `http://127.0.0.1:8000/api/v1`. Barcha javoblar `{ success, message, data, meta }`.
+Autentifikatsiya: `Authorization: Bearer <token>`.
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+### Demo akkauntlar
 
-## Laravel Sponsors
+| Login | Parol | Rol |
+|---|---|---|
+| `superadmin` | `superadmin123` | Superadmin |
+| `direktor` | `parol123` | Administrator |
+| `buxgalter` | `parol123` | Buxgalter |
+| `umida.shodi` | `parol123` | O'qituvchi (Italyan tili) |
+| `+998994602923` (yoki `o2026-0001`) | `parol123` | O'quvchi, A1-Ertalab guruhi |
+| `ota20000` | `parol123` | Ota-ona |
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+O'quvchi **telefon raqami + parol** bilan kiradi (`POST login`, `login` = telefon, ixtiyoriy `device_id`).
+Birinchi kirishda akkaunt qurilmaga bog'lanadi; boshqa qurilmadan kirish rad etiladi
+(admin `DELETE students/{id}/device` bilan tozalaydi).
 
-### Premium Partners
+### Cron (server)
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+```
+* * * * * php /path/artisan schedule:run >> /dev/null 2>&1
+```
 
-## Contributing
+Jadval (`routes/console.php`): Telegram xabarlari har daqiqa, qarzdorlik eslatmasi (5, 15, 25-kunlar),
+oylik hisobot (28-kun), hisob-fakturalar (1-kun).
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+---
 
-## Code of Conduct
+## Sozlamalar (.env)
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+| Kalit | Vazifasi |
+|---|---|
+| `AI_GENERATOR` | test/darslik/lug'at generatsiyasi: `gemini` \| `openai` \| `anthropic` |
+| `AI_EVALUATOR` | writing/speaking tahlili (Gemini tavsiya etiladi) |
+| `OPENAI_API_KEY` | **STT** (ovozni matnga) va **TTS** (listening audio, kartochka talaffuzi) |
+| `OPENAI_BASE_URL` | bepul OpenAI-mos API (Groq `https://api.groq.com/openai/v1`, OpenRouter …) — kalit shu provayderniki bo'ladi |
+| `GEMINI_API_KEY` | javoblarni tahlil qilish, oylik xulosa, generatsiya |
+| `TELEGRAM_BOT_TOKEN` / `TELEGRAM_WEBHOOK_SECRET` | ota-onalar boti |
+| `TELEGRAM_STUDENT_BOT_TOKEN` / `TELEGRAM_STUDENT_WEBHOOK_SECRET` | o'quvchilar boti (test yechish) |
+| `ACADEMY_UNIT_MAX_PLAYS` | darslik audiosi necha marta tinglanadi (default 3) |
+| `CERTIFICATE_AVAILABLE_FROM_DAY` | sertifikat oyning shu sanasidan keyin (default 25) |
+| `ACADEMY_MONTHLY_REPORT_DAY` | oylik tahlil yuboriladigan kun (default 28) |
 
-## Security Vulnerabilities
+**Kalit bo'lmasa ham ishlaydi:** tashqi AI sozlanmagan yoki xato bersa, tizim avtomatik lokal "oddiy AI" ga (`App\Services\Ai\LocalAi`) o'tadi — testlar/darsliklar/lug'at tayyor bankdan tuziladi, essay va speaking evristik baholanadi (`provider: local`). Kalit qo'yilishi bilan real AI ishlatiladi, hech narsa o'zgartirish shart emas. STT bo'lmasa brauzer nutqni tanib olishi (`transcript`), TTS bo'lmasa brauzer `speechSynthesis` (`tts_text`) ishlatiladi.
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+Batafsil: `config/academy.php` (darajalar, ko'nikmalar, yo'nalishlar, limitlar), `config/services.php`.
 
-## License
+Webhook: `php artisan telegram:set-webhook https://domen.uz`
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+---
+
+## Domen modeli
+
+| Tushuncha | Jadval | Izoh |
+|---|---|---|
+| Guruh | `school_classes` | `level` (A1..C2), `track` (general/medical/farming/special), jadval, Zoom havola. API: `groups` yoki `classes` |
+| O'quvchi | `students` | `level`, `track`, `monthly_hours`, `preferred_language` (kartochka orqa tomoni), `telegram_chat_id`, `device_id`, `speech_game_score`, `streak_days` |
+| Ota-ona | `guardians` | telefon orqali bog'lanadi (`parent_phone` o'quvchi yaratishda), Telegram `link_code` |
+| Darslik | `course_units` | daraja × yo'nalish × ko'nikma; `media_script` → TTS audio; **`max_plays`** — necha marta tinglash mumkin |
+| Material | `course_materials` | guruh kutubxonasi: video / kitob / fayl / havola |
+| Test | `test_templates` + `test_sections` + `test_questions` | `kind` (practice/homework/test/mock/placement), **`max_attempts`**, **`max_plays`**, `time_limits`, `auto_grade_ai` |
+| Urinish | `test_attempts` + `test_answers` | `attempt_no`, `expires_at`, bo'lim taymerlari, `similarity`, `ai_score`, `ai_feedback`, `source` (web/telegram) |
+| Eshitish hisobi | `media_plays`, `unit_progress` | o'quvchi × media × (urinish) — limit tugasa **423 Locked** |
+| Ko'nikma progressi | `skill_progress` | daraja × ko'nikma foizi (mockupdagi skill barlar) |
+| Lug'at | `vocab_decks`, `vocab_cards` | `word` (it) + `translations` `{uz,en,ru}` + misol + TTS audio |
+| O'yin | `games`, `game_sessions` | daraja, **savollar soni** (`card_count`), raund turlari, ball; liderbord |
+| Uy ishi | `homeworks`, `homework_submissions` | matn/fayl/audio/test; 0..100 ball |
+| Zoom | `meetings` (+ `meeting_class`) | guruhlar/darajalar/yo'nalishlar bo'yicha |
+| Sertifikat | `certificates` | oyiga 1 marta, 25-sanadan keyin; ball = davomat 40% + uy ishi 30% + test 30% |
+| Oylik hisobot | `monthly_reports` | statistika + AI xulosa → Telegram |
+| Bot sessiyasi | `telegram_sessions` | suhbat holati |
+
+### Limitlar qoidasi (darslik, test, mock)
+
+`config/academy.php → defaults.kinds`:
+
+| Tur | Urinishlar | Audio eshitish | AI baholash |
+|---|---|---|---|
+| practice (mashq) | cheksiz | 2 | ha |
+| homework | 2 | 2 | ha |
+| test | 1 | 1 | ha |
+| **mock** | **1** | **1** | ha |
+| placement | 1 | 1 | ha |
+
+Har bir shablon, bo'lim va savolda o'z qiymati bilan almashtirish mumkin (`max_attempts`, `max_plays`).
+Bo'limlar (reading/writing…) uchun vaqt: `time_limits` yoki `defaults.section_minutes`; urinish umumiy vaqti — `duration_minutes`.
+Vaqt tugasa javoblar avtomatik topshiriladi.
+
+---
+
+## AI oqimi
+
+1. **Test generatsiyasi** — `POST tests/generate` `{level, skills[], question_count, kind, topic, difficulty|adaptive}`.
+   AI bo'limlar (listening `media_script`, reading `passage`, writing gap+essay, speaking) va savollarni qaytaradi — **bazaga yozilmaydi**.
+2. O'qituvchi tahrirlaydi / o'zi tuzadi → `POST tests` (`sections[]`), `POST tests/{id}/audio` (OpenAI TTS listening audiosi), `POST tests/{id}/assign`.
+3. O'quvchi yechadi: variantli / true-false / gap / diktant — avtomatik (Levenshtein o'xshashlik, `similarity_threshold`);
+   **essay va speaking** — ovoz OpenAI STT bilan matnga o'giriladi, **Gemini** ball (0–100), mezonlar, xatolar va o'zbekcha fikr qaytaradi (`ai_feedback`). O'qituvchi `PUT test-attempts/{id}/grade` bilan o'zgartira oladi.
+4. Natija ko'nikma progressiga (`skill_progress`), baholar jurnaliga va ota-onaga xabarga aylanadi.
+
+Darslik: `POST units/generate` → tahrir → `POST units` (`generate_audio: true`). Lug'at: `POST decks/generate`, `POST decks/{id}/import` (Excel/CSV: so'z | tarjima | en | ru | misol | kategoriya), `POST decks/{id}/audio`.
+
+---
+
+## API bo'limlari
+
+| Bo'lim | Endpointlar |
+|---|---|
+| Auth | `POST login` (telefon/username + parol + `device_id`), `GET me`, `GET/PUT settings` |
+| **O'quvchi kabineti** `learn/*` (rol: student) | `dashboard`, `units`, `units/{id}/play`, `tests`, `assignments/{id}/start`, `practice/{id}/start`, `attempts/{id}`, `attempts/{id}/sections/{s}/open|play`, `attempts/{id}/questions/{q}/play`, `attempts/{id}/answer` (audio bilan), `attempts/{id}/submit`, `results`, `decks`, `decks/{id}/cards?lang=uz`, `games`, `games/{id}/start`, `game-sessions/{id}/answer|finish`, `leaderboard`, `homeworks`, `homeworks/{id}/submit`, `meetings`, `certificate/eligibility`, `POST certificate`, `certificates`, `monthly-report` |
+| Guruhlar | `groups` (= `classes`), `groups/{id}/students`, `.../attendance/journal` |
+| O'quvchilar | `students`, `students/{id}/level`, `level-history`, `DELETE device`, `certificate-eligibility`, `transfer`, `finance` |
+| Darsliklar | `units`, `units/generate`, `units/{id}/audio`, `materials` |
+| Testlar | `tests`, `tests/generate`, `tests/{id}/audio|publish|assign`, `test-assignments`, `test-attempts/{id}`, `.../grade` |
+| Lug'at / o'yinlar | `decks`, `decks/generate`, `decks/{id}/import|audio`, `games`, `games/{id}/results|leaderboard`, `leaderboard` |
+| Uy ishi | `homeworks`, `homeworks/{id}/submissions`, `homework-submissions/{id}/grade` |
+| Zoom | `meetings` |
+| Sertifikat | `certificates` (admin), `certificates/verify/{code}` va `certificates/{serial}/html` (ochiq) |
+| Hisobotlar | `reports/dashboard|attendance|grades|payments|debtors|salaries|skills|monthly-progress`, `POST reports/monthly-progress/send` |
+| Moliya | `tariffs`, `invoices`, `payments`, `finance/debtors` |
+| Telegram | `POST telegram/student/{secret}`, `POST telegram/parent/{secret}` (webhook), `notifications/*` |
+
+To'liq ro'yxat: `php artisan route:list --path=api`. Yangi route qo'shgach: `php artisan permissions:sync`.
+
+### Mockup → API xaritasi
+
+| Mockup bo'limi | Backend |
+|---|---|
+| Bosh sahifa (statistika, streak) | `learn/dashboard`, `reports/dashboard` |
+| O'quvchilar bazasi (login, qulf, qurilma) | `students`, `users/{id}/status`, `students/{id}/device` |
+| Darajalar A1–C2 (video/fayl/uy ishi paneli, skill barlar) | `units`, `materials`, `homeworks`, `learn/dashboard.skills` |
+| Tinglash / Yozish / Gapirish / O'qish modallari | `learn/tests` → attempt oqimi (bo'limlar, taymer, audio limiti, AI baho) |
+| Ovozli lug'at + Excel import | `decks`, `decks/{id}/import`, `learn/decks/{id}/cards?lang=` |
+| So'zlashuv o'yini + liderbord | `games`, `learn/games/*`, `learn/leaderboard` |
+| Interaktiv testlar (Excel'dan) | `decks/{id}/import` + `games` (`choice`) yoki `tests` |
+| Sertifikat generator | `learn/certificate` (25-sanadan keyin, oyiga 1), `certificates/{serial}/html` |
+| Zoom mitinglar | `meetings`, `learn/meetings` |
+| Sozlamalar (bildirishnoma, ovoz, mavzu, til) | `settings` |
+| Meditsina / Fermerlik / Grant guruhlari | `track` = medical / farming / special |
+
+---
+
+## Telegram botlar
+
+**O'quvchilar boti** (faqat variantli testlar): `/start` → telefon → parol → `/tests` → test tanlash →
+savollar inline tugmalar bilan → natija. Urinishlar limiti platformadagi bilan bir xil (`source = telegram`).
+`/results`, `/level`, `/logout`.
+
+**Ota-onalar boti**: telefon yoki `link_code` bilan bog'lanish; `/debt` (qarzdorlik), `/report` (oylik tahlil), `/children`.
+Avtomatik xabarlar (`notification_events` → `notifications:send`): qarzdorlik eslatmasi, to'lov, baho, davomat,
+uy ishi berildi/baholandi, test biriktirildi, sertifikat, daraja o'zgardi, **oylik o'zlashtirish tahlili**.
+
+Buyruqlar: `notifications:send`, `finance:debt-reminders`, `reports:monthly --year --month`, `telegram:set-webhook`.
+
+---
+
+## Struktura
+
+```
+app/
+  Services/
+    Ai/                 AiClient interfeysi, GeminiClient, OpenAiClient, AnthropicClient, AiManager, SpeechService (STT/TTS)
+    Telegram/           TelegramClient, TelegramNotifier, StudentBotService, ParentBotService
+    AiTestGeneratorService, AiEvaluationService, TestService (bo'limlar, limitlar, taymer, baholash)
+    CourseUnitService, VocabService, GameService, HomeworkService, MeetingService
+    LearningService (o'quvchi kabineti), MediaPlayService, SkillProgressService
+    CertificateService, MonthlyReportService, StudentStatsService, DebtReminderService
+  Support/              Level (CEFR), TextSimilarity (Levenshtein), SpreadsheetReader (CSV/XLSX)
+config/academy.php      darajalar, ko'nikmalar, yo'nalishlar, limitlar, sertifikat qoidalari
+database/seeders/Data/  ItalianContent (A1–C2 kontent), TestBank (IELTS uslubidagi shablonlar)
+resources/views/certificates/show.blade.php   chop etiladigan sertifikat
+tests/Feature/          81 test (auth/qurilma, limitlar, AI baholash, sertifikat, o'yin, bot, uy ishi…)
+```
+
+Qat'iy qoida saqlanadi: kontrollerda faqat metod chaqiruvi, validatsiya FormRequest'da, biznes-logika servisda.
+
+---
+
+## Testlar
+
+```bash
+php artisan test
+```
+
+---
+
+## Keyingi bosqichlar
+
+- Frontend: `index (20).html` mockupini API ga ulash (Vue/React) — "Mockup → API xaritasi" bo'limiga qarang
+- Flutter mobil ilova (o'quvchi va ota-ona)
+- Placement (daraja aniqlash) testini ro'yxatdan o'tishga ulash

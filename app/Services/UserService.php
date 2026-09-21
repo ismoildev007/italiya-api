@@ -2,135 +2,132 @@
 
 namespace App\Services;
 
+use App\Models\Role;
 use App\Models\User;
 use App\Repositories\UserRepository;
-use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Support\Facades\Hash;
-use App\Models\Role;
-use App\Models\Permission;
-use OwenIt\Auditing\Models\Audit;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
 
 class UserService
 {
     public function __construct(
-        private readonly UserRepository $userRepository
+        private readonly UserRepository $users,
     ) {}
 
-    public function getAll(): Collection
+    public function paginate(array $filters, int $perPage = 20): LengthAwarePaginator
     {
-        return $this->userRepository->all();
-    }
-
-    public function getOne(User $user): User
-    {
-        return $this->userRepository->find($user);
+        return $this->users->paginate($filters, $perPage);
     }
 
     public function create(array $data): User
     {
-        $data['password'] = Hash::make($data['password']);
-        return $this->userRepository->create($data);
+        return DB::transaction(function () use ($data) {
+            $user = $this->users->create([
+                'firstname' => $data['firstname'],
+                'lastname' => $data['lastname'],
+                'middlename' => $data['middlename'] ?? null,
+                'username' => $data['username'],
+                'phone' => $data['phone'] ?? null,
+                'email' => $data['email'] ?? null,
+                'password' => $data['password'],
+                'locale' => $data['locale'] ?? config('school.locale'),
+                'status' => $data['status'] ?? 'active',
+            ]);
+
+            $this->syncRoles($user, $data['roles'] ?? []);
+
+            return $user->load('roles');
+        });
     }
 
     public function update(User $user, array $data): User
     {
-        if (isset($data['password'])) {
-            $data['password'] = Hash::make($data['password']);
-        }
-        return $this->userRepository->update($user, $data);
-    }
+        $this->guardSuperadmin($user, allowSelfPassword: true);
 
-    public function getFilteredUsers(array $filters): Collection
-    {
-        $query = User::with('roles');
+        return DB::transaction(function () use ($user, $data) {
+            $payload = array_filter([
+                'firstname' => $data['firstname'] ?? null,
+                'lastname' => $data['lastname'] ?? null,
+                'middlename' => $data['middlename'] ?? null,
+                'username' => $data['username'] ?? null,
+                'phone' => $data['phone'] ?? null,
+                'email' => $data['email'] ?? null,
+                'locale' => $data['locale'] ?? null,
+                'status' => $data['status'] ?? null,
+            ], fn ($v) => $v !== null);
 
-        if (!empty($filters['search'])) {
-            $search = $filters['search'];
-            $query->where(function($q) use ($search) {
-                $q->where('firstname', 'like', "%{$search}%")
-                  ->orWhere('lastname', 'like', "%{$search}%")
-                  ->orWhere('username', 'like', "%{$search}%");
-            });
-        }
-
-        if (!empty($filters['role'])) {
-            $query->whereHas('roles', function($q) use ($filters) {
-                $q->where('roles.name', $filters['role']);
-            });
-        }
-
-        if (!empty($filters['permission'])) {
-            $query->whereHas('roles.permissions', function($q) use ($filters) {
-                $q->where('permissions.name', $filters['permission']);
-            });
-        }
-
-        return $query->get();
-    }
-
-    public function getUserFormData(): array
-    {
-        return [
-            'roles' => Role::orderBy('name')->get(),
-            'permissions' => Permission::orderBy('name')->get(),
-            'allProjects' => Audit::select('project_name')
-                ->distinct()
-                ->whereNotNull('project_name')
-                ->orderBy('project_name')
-                ->pluck('project_name'),
-        ];
-    }
-
-    public function createUser(array $data): User
-    {
-        $user = User::create([
-            'firstname' => $data['firstname'],
-            'lastname'  => $data['lastname'],
-            'username'  => $data['username'],
-            'password'  => Hash::make($data['password']),
-            'project_permission' => $data['projects'] ?? [],
-            'created_by' => auth()->id(),
-        ]);
-
-        if (!empty($data['roles'])) {
-            $user->roles()->attach($data['roles']);
-        }
-
-        return $user;
-    }
-
-    public function updateUserDetails(User $user, array $data): void
-    {
-        if ($user->username === 'superadmin') {
-            if (!empty($data['password'])) {
-                $user->update(['password' => Hash::make($data['password'])]);
+            if (! empty($data['password'])) {
+                $payload['password'] = $data['password'];
             }
-            return;
-        }
 
-        if (isset($data['roles'])) {
-            $user->roles()->sync($data['roles']);
-        }
-        
-        $updateData = [
-            'firstname' => $data['firstname'] ?? $user->firstname,
-            'lastname'  => $data['lastname'] ?? $user->lastname,
-            'username'  => $data['username'] ?? $user->username,
-            'project_permission' => $data['projects'] ?? [],
-        ];
+            $user = $this->users->update($user, $payload);
 
-        if (!empty($data['password'])) {
-            $updateData['password'] = Hash::make($data['password']);
-        }
+            if (array_key_exists('roles', $data)) {
+                $this->syncRoles($user, $data['roles'] ?? []);
+            }
 
-        $user->update($updateData);
+            return $user->load('roles');
+        });
     }
 
     public function delete(User $user): void
     {
-        if ($user->username === 'superadmin') {
-            abort(403, 'Superadmin o\'chirilishi mumkin emas.');
+        $this->guardSuperadmin($user);
+
+        if ($user->id === auth()->id()) {
+            abort(422, 'O\'zingizni o\'chira olmaysiz.');
         }
-        $user->delete();
+
+        $this->users->delete($user);
+    }
+
+    public function setStatus(User $user, string $status): User
+    {
+        $this->guardSuperadmin($user);
+
+        if ($user->id === auth()->id()) {
+            abort(422, 'O\'z akkauntingiz holatini o\'zgartira olmaysiz.');
+        }
+
+        return $this->users->update($user, ['status' => $status]);
+    }
+
+    public function resetPassword(User $user, string $password): User
+    {
+        return $this->users->update($user, ['password' => $password]);
+    }
+
+    /**
+     * @param  array<int, string>  $roleNames
+     */
+    public function syncRoles(User $user, array $roleNames): void
+    {
+        // Superadmin rolini faqat superadmin bera oladi
+        if (in_array(config('authorization.super_role'), $roleNames, true) && ! auth()->user()?->isSuperadmin()) {
+            abort(403, 'Superadmin rolini biriktirish uchun ruxsat yo\'q.');
+        }
+
+        $valid = Role::whereIn('name', $roleNames)->pluck('name')->all();
+
+        $user->roles()->sync($valid);
+        $user->unsetRelation('roles');
+    }
+
+    /** Superadmin akkauntini boshqalar o'zgartira/o'chira olmaydi. */
+    private function guardSuperadmin(User $user, bool $allowSelfPassword = false): void
+    {
+        if (! $user->isSuperadmin()) {
+            return;
+        }
+
+        if ($allowSelfPassword && auth()->id() === $user->id) {
+            return;
+        }
+
+        if (auth()->user()?->isSuperadmin() && auth()->id() === $user->id) {
+            return;
+        }
+
+        abort(403, 'Superadmin akkaunti himoyalangan.');
     }
 }

@@ -8,21 +8,14 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // role_user pivot: user_name → users.username, role_name → roles.name
+        // Diqqat: bog'lanish users.id orqali (username o'zgarsa ham buzilmaydi)
         Schema::create('role_user', function (Blueprint $table) {
-            $table->id();
-            $table->string('user_name');
-            $table->string('role_name');
+            $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
+            $table->string('role_name', 64);
 
-            $table->foreign('user_name')
-                  ->references('username')->on('users')
-                  ->onDelete('cascade');
+            $table->primary(['user_id', 'role_name']);
 
-            $table->foreign('role_name')
-                  ->references('name')->on('roles')
-                  ->onDelete('cascade');
-
-            $table->primary(['user_name', 'role_name']);
+            $table->foreign('role_name')->references('name')->on('roles')->cascadeOnDelete();
         });
     }
 

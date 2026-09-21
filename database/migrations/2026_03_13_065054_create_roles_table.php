@@ -9,12 +9,20 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('roles', function (Blueprint $table) {
-            $table->string('name')->primary();
-            $table->integer('type')->default(1);      // 0 = System, 1 = User-defined
+            // Rol nomi — inglizcha, texnik kalit (superadmin, admin, teacher, student ...)
+            $table->string('name', 64)->primary();
+            $table->unsignedBigInteger('school_id')->default(1)->index();
+
+            $table->string('title');                 // UI uchun ko'rinadigan nom
             $table->string('description')->nullable();
+
+            // Tizim roli — hech qachon o'chirilmaydi va nomi o'zgartirilmaydi
+            $table->boolean('is_system')->default(false)->index();
+            $table->unsignedInteger('level')->default(100); // kichik raqam = yuqori vakolat
+
             $table->unsignedBigInteger('created_by')->nullable();
             $table->unsignedBigInteger('updated_by')->nullable();
-            // No timestamps ($timestamps = false on Role model)
+            $table->timestamps();
         });
     }
 

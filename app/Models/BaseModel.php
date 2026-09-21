@@ -2,12 +2,16 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToSchool;
+use App\Models\Concerns\Filterable;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * Shared base model — can be extended to add common logic (soft deletes, scopes, etc).
+ * Domen modellari uchun umumiy asos: `school_id` bilan bog'liq mantiq
+ * va factory qo'llab-quvvatlashi.
  */
-class BaseModel extends Model
+abstract class BaseModel extends Model
 {
-    //
+    use BelongsToSchool, Filterable, HasFactory;
 }

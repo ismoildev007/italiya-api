@@ -2,41 +2,60 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\LoginRequest;
-use App\Http\Requests\StoreUserRequest;
+use App\Http\Requests\Auth\ChangePasswordRequest;
+use App\Http\Requests\Auth\LoginRequest;
+use App\Http\Resources\UserResource;
 use App\Services\AuthService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class AuthController extends Controller
 {
-    protected AuthService $authService;
     public function __construct(
-        AuthService $authService,
-    ) {
-        $this->authService = $authService;
-    }
+        private readonly AuthService $auth,
+    ) {}
 
-    public function register(StoreUserRequest $request): JsonResponse
-    {
-        $result = $this->authService->register($request->validated());
-
-        return response()->json($result, 201);
-    }
-
+    /** Login — username yoki telefon + parol. */
     public function login(LoginRequest $request): JsonResponse
     {
-        $result = $this->authService->login(
-            $request->username,
-            $request->password
-        );
-        return response()->json($result);
+        $data = $request->validated();
+        $result = $this->auth->login($data['login'], $data['password'], $data['device'] ?? null, $data['device_id'] ?? null);
+
+        return $this->ok([
+            ...$result,
+            'user' => new UserResource($result['user']),
+        ], 'Tizimga muvaffaqiyatli kirdingiz.');
+    }
+
+    /** Joriy foydalanuvchi, uning ruxsatlari va maktab ma'lumotlari. */
+    public function me(Request $request): JsonResponse
+    {
+        $profile = $this->auth->profile($request->user());
+
+        return $this->ok([
+            ...$profile,
+            'user' => new UserResource($profile['user']),
+        ]);
+    }
+
+    public function changePassword(ChangePasswordRequest $request): JsonResponse
+    {
+        $this->auth->changePassword($request->user(), $request->payload(['password_confirmation']));
+
+        return $this->ok(null, 'Parol yangilandi.');
     }
 
     public function logout(Request $request): JsonResponse
     {
-        $this->authService->logout($request->user());
+        $this->auth->logout($request->user());
 
-        return response()->json(['message' => 'Logged out successfully']);
+        return $this->ok(null, 'Tizimdan chiqdingiz.');
+    }
+
+    public function logoutAll(Request $request): JsonResponse
+    {
+        $this->auth->logoutAll($request->user());
+
+        return $this->ok(null, 'Barcha qurilmalardan chiqildi.');
     }
 }

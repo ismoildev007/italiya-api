@@ -8,21 +8,14 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // permission_role pivot: role_name → roles.name, permission_name → permissions.name
         Schema::create('permission_role', function (Blueprint $table) {
-            $table->id();
-            $table->string('role_name');
-            $table->string('permission_name');
-
-            $table->foreign('role_name')
-                  ->references('name')->on('roles')
-                  ->onDelete('cascade');
-
-            $table->foreign('permission_name')
-                  ->references('name')->on('permissions')
-                  ->onDelete('cascade');
+            $table->string('role_name', 64);
+            $table->string('permission_name', 128);
 
             $table->primary(['role_name', 'permission_name']);
+
+            $table->foreign('role_name')->references('name')->on('roles')->cascadeOnDelete();
+            $table->foreign('permission_name')->references('name')->on('permissions')->cascadeOnDelete();
         });
     }
 
