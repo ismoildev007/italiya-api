@@ -49,7 +49,7 @@ class TestSeeder extends Seeder
                     'topic' => $data['topic'],
                     'description' => "{$data['level']} darajasi, «{$data['topic']}» mavzusi bo'yicha ".config("academy.levels.{$data['level']}.title").' testi.',
                     'difficulty' => $data['difficulty'],
-                    'generated_by' => $data['generated_by'],
+                    'generated_by' => 'manual',
                     'ai_model' => $data['generated_by'] === 'ai' ? config('services.gemini.model') : null,
                     'ai_prompt' => $data['generated_by'] === 'ai' ? "{$data['level']} daraja, «{$data['topic']}» mavzusi bo'yicha 4 bo'limli test generatsiya qil." : null,
                     'ai_generated_at' => $data['generated_by'] === 'ai' ? now()->subDays(20 - $index) : null,

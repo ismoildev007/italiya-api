@@ -1,12 +1,18 @@
 <?php
 
+use App\Models\User;
 use App\Services\DebtReminderService;
 use App\Services\FinanceService;
 use App\Services\MonthlyReportService;
 use App\Services\Telegram\TelegramClient;
 use App\Services\Telegram\TelegramNotifier;
+use Database\Seeders\AcademicYearSeeder;
+use Database\Seeders\PermissionSeeder;
+use Database\Seeders\RoleSeeder;
+use Database\Seeders\SubjectSeeder;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schedule;
 
 /*
@@ -50,6 +56,29 @@ Artisan::command('telegram:set-webhook {base?}', function () {
         $this->line("{$bot}: ".($response->json('ok') ? 'webhook o\'rnatildi' : 'xato: '.$response->body()));
     }
 })->purpose('Ikkala Telegram bot uchun webhook o\'rnatish');
+
+Artisan::command('academy:reset {--force}', function () {
+    if (! $this->option('force') && ! $this->confirm('BARCHA ma\'lumotlar o\'chiriladi (superadmin, rollar, ruxsatlar, o\'quv yili va fanlar qoladi). Davom etilsinmi?')) {
+        return;
+    }
+
+    $this->call('migrate:fresh', ['--force' => true]);
+    $this->call('db:seed', ['--class' => RoleSeeder::class, '--force' => true]);
+    $this->call('db:seed', ['--class' => PermissionSeeder::class, '--force' => true]);
+    $this->call('db:seed', ['--class' => AcademicYearSeeder::class, '--force' => true]);
+    $this->call('db:seed', ['--class' => SubjectSeeder::class, '--force' => true]);
+
+    $user = User::updateOrCreate(
+        ['username' => 'superadmin'],
+        ['school_id' => config('school.id'), 'firstname' => 'Ismoil', 'lastname' => 'Usmonov', 'middlename' => 'Dilshod o`g`li',
+            'phone' => '+998880072117', 'email' => 'superadmin@dmsystem.uz', 'password' => Hash::make('ismoil_007u'),
+            'status' => 'active', 'locale' => 'uz'],
+    );
+    $user->roles()->sync(['superadmin']);
+
+    $this->call('config:clear');
+    $this->info('✅ Baza tozalandi. Faqat superadmin (ismoil_007u), rollar, ruxsatlar, o\'quv yili va fanlar qoldi.');
+})->purpose('Demo ma\'lumotlarni o\'chirib, faqat superadminni qoldirish');
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());

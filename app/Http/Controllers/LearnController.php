@@ -4,8 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\Homework\SubmitHomeworkRequest;
 use App\Http\Requests\Learn\AnswerRequest;
+use App\Http\Requests\Learn\DuelRequest;
 use App\Http\Requests\Learn\GameAnswerRequest;
 use App\Http\Requests\Learn\LearnFilterRequest;
+use App\Http\Requests\Learn\LessonAnswerRequest;
 use App\Http\Requests\Learn\SubmitAttemptRequest;
 use App\Http\Resources\CertificateResource;
 use App\Http\Resources\CourseUnitResource;
@@ -17,9 +19,11 @@ use App\Http\Resources\MeetingResource;
 use App\Http\Resources\MonthlyReportResource;
 use App\Http\Resources\VocabDeckResource;
 use App\Models\CourseUnit;
+use App\Models\Duel;
 use App\Models\Game;
 use App\Models\GameSession;
 use App\Models\Homework;
+use App\Models\LessonSession;
 use App\Models\Student;
 use App\Models\TestAssignment;
 use App\Models\TestAttempt;
@@ -29,14 +33,17 @@ use App\Models\TestTemplate;
 use App\Models\VocabDeck;
 use App\Services\CertificateService;
 use App\Services\CourseUnitService;
+use App\Services\DuelService;
 use App\Services\GameService;
 use App\Services\HomeworkService;
 use App\Services\LearningService;
+use App\Services\LessonPathService;
 use App\Services\MediaPlayService;
 use App\Services\MeetingService;
 use App\Services\MonthlyReportService;
 use App\Services\TestService;
 use App\Services\VocabService;
+use App\Support\Feature;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -80,6 +87,8 @@ class LearnController extends Controller
     /** Audio/videoni tinglash — limit tugasa 423 */
     public function playUnit(Request $request, CourseUnit $unit): JsonResponse
     {
+        abort_unless(Feature::audio(), 422, 'Audio funksiyasi o\'chirilgan.');
+
         return $this->ok($this->units->play($this->learning->student($request->user()), $unit));
     }
 
@@ -279,6 +288,120 @@ class LearnController extends Controller
         $report = $reports->build($student, (int) $request->input('year', now()->year), (int) $request->input('month', now()->month), false);
 
         return $this->ok(new MonthlyReportResource($report));
+    }
+
+    /* ---------------- Dars yo'li ---------------- */
+
+    public function path(Request $request, LessonPathService $path): JsonResponse
+    {
+        return $this->ok($path->map($this->learning->student($request->user())));
+    }
+
+    public function lessonIntro(Request $request, LessonPathService $path, string $level, string $skill): JsonResponse
+    {
+        return $this->ok($path->intro($this->learning->student($request->user()), strtoupper($level), $skill));
+    }
+
+    public function lessonStart(Request $request, LessonPathService $path, string $level, string $skill): JsonResponse
+    {
+        $session = $path->start($this->learning->student($request->user()), strtoupper($level), $skill);
+
+        return $this->ok($path->view($session), 'Dars boshlandi.');
+    }
+
+    public function lesson(Request $request, LessonPathService $path, LessonSession $lesson): JsonResponse
+    {
+        $this->authorizeLesson($request, $lesson);
+
+        return $this->ok($path->view($lesson));
+    }
+
+    public function lessonAnswer(LessonAnswerRequest $request, LessonPathService $path, LessonSession $lesson): JsonResponse
+    {
+        $this->authorizeLesson($request, $lesson);
+        $data = $request->validated();
+
+        return $this->ok($path->answer($lesson, (int) $data['no'], $data['answer'] ?? null));
+    }
+
+    public function lessonFinish(Request $request, LessonPathService $path, LessonSession $lesson): JsonResponse
+    {
+        $this->authorizeLesson($request, $lesson);
+
+        return $this->ok($path->finish($lesson), 'Dars yakunlandi!');
+    }
+
+    /* ---------------- Duel ---------------- */
+
+    public function duels(Request $request, DuelService $duels): JsonResponse
+    {
+        return $this->ok($duels->listFor($this->learning->student($request->user())));
+    }
+
+    /** Heartbeat — online holati (duel sheriklari ro'yxati uchun) */
+    public function presence(Request $request, DuelService $duels): JsonResponse
+    {
+        return $this->ok($duels->touch($this->learning->student($request->user())));
+    }
+
+    public function duelOpponents(DuelRequest $request, DuelService $duels): JsonResponse
+    {
+        return $this->ok($duels->opponents($this->learning->student($request->user()), $request->validated()['q'] ?? null));
+    }
+
+    public function duelCreate(DuelRequest $request, DuelService $duels): JsonResponse
+    {
+        $student = $this->learning->student($request->user());
+        $data = $request->validated();
+        $duel = $duels->create($student, isset($data['opponent_student_id']) ? (int) $data['opponent_student_id'] : null, $data['level'] ?? null);
+
+        return $this->created($duels->state($duel, 'host'), 'Duel yaratildi.');
+    }
+
+    public function duelJoin(DuelRequest $request, DuelService $duels, ?Duel $duel = null): JsonResponse
+    {
+        $student = $this->learning->student($request->user());
+        $duel = $duel ?? $duels->findByCode((string) ($request->validated()['code'] ?? ''));
+        $duel = $duels->join($duel, $student);
+
+        return $this->ok($duels->state($duel, 'opponent'), 'Duel boshlandi!');
+    }
+
+    public function duelBot(DuelRequest $request, DuelService $duels, Duel $duel): JsonResponse
+    {
+        $student = $this->learning->student($request->user());
+        $duel = $duels->playWithBot($duel, $student, $request->validated()['bot_level'] ?? 'medium');
+
+        return $this->ok($duels->state($duel, 'host'), 'Bot bilan duel boshlandi!');
+    }
+
+    public function duel(Request $request, DuelService $duels, Duel $duel): JsonResponse
+    {
+        $student = $this->learning->student($request->user());
+        abort_unless($duel->isParticipant($student) || $duel->status === Duel::WAITING, 403);
+
+        return $this->ok($duels->state($duel, $duel->sideOf($student)));
+    }
+
+    public function duelAnswer(DuelRequest $request, DuelService $duels, Duel $duel): JsonResponse
+    {
+        $student = $this->learning->student($request->user());
+        $data = $request->validated();
+
+        return $this->ok($duels->answer($duel, $student, (int) ($data['no'] ?? 0), (string) ($data['answer'] ?? '')));
+    }
+
+    public function duelCancel(Request $request, DuelService $duels, Duel $duel): JsonResponse
+    {
+        $student = $this->learning->student($request->user());
+
+        return $this->ok($duels->state($duels->cancel($duel, $student), $duel->sideOf($student)), 'Duel bekor qilindi.');
+    }
+
+    private function authorizeLesson(Request $request, LessonSession $lesson): void
+    {
+        $student = $this->learning->student($request->user());
+        abort_unless($lesson->student_id === $student->id, 403, 'Bu dars sizga tegishli emas.');
     }
 
     /* ---------------- Yordamchilar ---------------- */

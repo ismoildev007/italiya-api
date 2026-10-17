@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Feature;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -60,15 +61,24 @@ class Game extends BaseModel
     public function roundTypes(): array
     {
         if (! empty($this->round_types)) {
-            return $this->round_types;
+            $allowed = array_values(array_intersect($this->round_types, Feature::roundTypes()));
+
+            if ($allowed !== []) {
+                return $allowed;
+            }
         }
 
-        return match ($this->type) {
+        $types = match ($this->type) {
             'speech' => [self::ROUND_IT_TO_TR, self::ROUND_TR_TO_IT, self::ROUND_VOICE],
             'choice', 'match' => [self::ROUND_IT_TO_TR, self::ROUND_TR_TO_IT],
             'typing' => [self::ROUND_TYPING],
             'listening' => [self::ROUND_LISTENING],
             default => [self::ROUND_IT_TO_TR],
         };
+
+        // Audio o'chirilgan bo'lsa ovozli/eshitish raundlari chiqarib tashlanadi
+        $types = array_values(array_intersect($types, Feature::roundTypes()));
+
+        return $types ?: [self::ROUND_IT_TO_TR];
     }
 }

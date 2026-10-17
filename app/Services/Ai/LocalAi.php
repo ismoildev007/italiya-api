@@ -4,6 +4,7 @@ namespace App\Services\Ai;
 
 use App\Models\VocabCard;
 use App\Models\VocabDeck;
+use App\Support\Feature;
 use App\Support\Level;
 use App\Support\TextSimilarity;
 use Database\Seeders\Data\ItalianContent;
@@ -36,7 +37,7 @@ class LocalAi
         $c = $this->content($level);
         $sections = [];
 
-        foreach ($skills as $skill) {
+        foreach (array_intersect($skills, Feature::skills()) as $skill) {
             $questions = $this->bankQuestions($c, $skill);
 
             // Yetmasa — lug'at/grammatika savollari bilan to'ldiramiz

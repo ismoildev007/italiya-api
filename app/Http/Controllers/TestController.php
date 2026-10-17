@@ -17,6 +17,7 @@ use App\Models\TestAttempt;
 use App\Models\TestTemplate;
 use App\Services\AiTestGeneratorService;
 use App\Services\TestService;
+use App\Support\Feature;
 use Illuminate\Http\JsonResponse;
 
 /**
@@ -41,6 +42,8 @@ class TestController extends Controller
      */
     public function generate(GenerateTestRequest $request, AiTestGeneratorService $ai): JsonResponse
     {
+        abort_unless(Feature::ai(), 422, 'AI funksiyasi o\'chirilgan. Yoqish uchun .env da AI_ENABLED=true.');
+
         return $this->ok($ai->generate($request->validated()), 'Savollar generatsiya qilindi.');
     }
 
@@ -113,6 +116,8 @@ class TestController extends Controller
     /** Listening bo'limlari uchun OpenAI TTS orqali audio generatsiya qilish */
     public function generateAudio(TestTemplate $test): JsonResponse
     {
+        abort_unless(Feature::audio(), 422, 'Audio (tinglash) funksiyasi o\'chirilgan.');
+
         $count = $this->tests->generateAudio($test, (bool) request()->boolean('force'));
 
         return $this->ok(new TestTemplateResource($this->tests->withQuestions($test->fresh())), "{$count} ta audio yaratildi.");

@@ -15,12 +15,12 @@ beforeEach(function () {
 });
 
 it('AI (Gemini) orqali IELTS uslubidagi test generatsiya qiladi', function () {
-    config(['services.gemini.key' => 'k', 'services.ai.generator' => 'gemini']);
+    config(['academy.features.ai' => true, 'services.gemini.key' => 'k', 'services.ai.generator' => 'gemini']);
 
     Http::fake(['generativelanguage.googleapis.com/*' => Http::response(['candidates' => [['content' => ['parts' => [['text' => json_encode([
         'title' => 'A1 test',
         'sections' => [
-            ['skill' => 'listening', 'media_script' => 'Ciao, mi chiamo Anna.', 'questions' => [
+            ['skill' => 'grammar', 'questions' => [
                 ['body' => 'Come si chiama?', 'type' => 'single_choice', 'options' => [['body' => 'Anna', 'is_correct' => true], ['body' => 'Luca', 'is_correct' => false]]],
             ]],
             ['skill' => 'reading', 'passage' => 'Testo…', 'questions' => [
@@ -29,11 +29,11 @@ it('AI (Gemini) orqali IELTS uslubidagi test generatsiya qiladi', function () {
         ],
     ])]]]]]])]);
 
-    $data = $this->postJson('/api/v1/tests/generate', ['level' => 'A1', 'skills' => ['listening', 'reading'], 'question_count' => 1, 'kind' => 'mock'])
+    $data = $this->postJson('/api/v1/tests/generate', ['level' => 'A1', 'skills' => ['grammar', 'reading'], 'question_count' => 1, 'kind' => 'mock'])
         ->assertOk()->json('data');
 
     expect($data['sections'])->toHaveCount(2)
-        ->and($data['sections'][0]['media_script'])->toBe('Ciao, mi chiamo Anna.')
+        ->and($data['sections'][0]['skill'])->toBe('grammar')
         ->and($data['sections'][1]['questions'][0]['type'])->toBe('true_false')
         ->and($data['provider'])->toBe('gemini');
 
@@ -78,15 +78,16 @@ it('lug\'at to\'plamiga CSV import qiladi', function () {
         ->assertOk()->assertJsonPath('data.cards_count', 2)->assertJsonPath('data.cards.1.translations.en', 'Thanks');
 });
 
-it('o\'qituvchi darslik yaratadi va o\'quvchi audio limitini ko\'radi', function () {
-    $unit = $this->postJson('/api/v1/units', ['level' => 'A1', 'skill' => 'listening', 'title' => 'Ascolto 1', 'media_script' => 'Ciao', 'media_url' => 'https://example.com/a.mp3', 'max_plays' => 2, 'is_published' => true])
+it('o\'qituvchi darslik yaratadi, tinglash o\'chirilgan — listening darslik qabul qilinmaydi', function () {
+    $this->postJson('/api/v1/units', ['level' => 'A1', 'skill' => 'listening', 'title' => 'Ascolto 1'])->assertStatus(422);
+
+    $unit = $this->postJson('/api/v1/units', ['level' => 'A1', 'skill' => 'reading', 'title' => 'Lettura 1', 'content' => '# Testo', 'is_published' => true])
         ->assertCreated()->json('data');
 
     $student = loginAsStudent(makeStudent('A1'));
-    $this->getJson('/api/v1/learn/units')->assertOk()->assertJsonPath('data.0.play_state.limit', 2);
-    $this->postJson("/api/v1/learn/units/{$unit['id']}/play")->assertOk()->assertJsonPath('data.remaining', 1);
-    $this->postJson("/api/v1/learn/units/{$unit['id']}/play")->assertOk()->assertJsonPath('data.remaining', 0);
-    $this->postJson("/api/v1/learn/units/{$unit['id']}/play")->assertStatus(423);
+    $this->getJson('/api/v1/learn/units')->assertOk()->assertJsonPath('data.0.id', $unit['id'])->assertJsonPath('data.0.has_media', false);
+    $this->postJson("/api/v1/learn/units/{$unit['id']}/play")->assertStatus(422);
+    $this->postJson("/api/v1/learn/units/{$unit['id']}/complete")->assertOk();
 
     // Boshqa darajadagi o'quvchi ko'rmaydi
     loginAsStudent(makeStudent('B2'));
@@ -102,17 +103,16 @@ it('o\'quvchi darajasini o\'zgartiradi va tarix yoziladi', function () {
     expect(NotificationEvent::where('type', NotificationEvent::TYPE_LEVEL_CHANGED)->count())->toBe(1); // ota-ona yo'q — faqat o'quvchiga
 });
 
-it('AI kaliti bo\'lmasa lokal zaxira test, darslik va lug\'at generatsiya qiladi', function () {
-    config(['services.gemini.key' => null, 'services.openai.key' => null, 'services.anthropic.key' => null]);
+it('AI yoqilgan, lekin kalit bo\'lmasa lokal zaxira test, darslik va lug\'at generatsiya qiladi', function () {
+    config(['academy.features.ai' => true, 'services.gemini.key' => null, 'services.openai.key' => null, 'services.anthropic.key' => null]);
 
-    $test = $this->postJson('/api/v1/tests/generate', ['level' => 'B1', 'skills' => ['listening', 'reading', 'writing', 'speaking'], 'question_count' => 3, 'kind' => 'mock'])
+    $test = $this->postJson('/api/v1/tests/generate', ['level' => 'B1', 'skills' => ['reading', 'writing', 'speaking', 'grammar'], 'question_count' => 3, 'kind' => 'mock'])
         ->assertOk()->json('data');
 
     expect($test['provider'])->toBe('local')
         ->and($test['sections'])->toHaveCount(4)
-        ->and($test['sections'][0]['media_script'])->not->toBeEmpty()
-        ->and($test['sections'][1]['passage'])->not->toBeEmpty()
-        ->and(collect($test['sections'][3]['questions'])->pluck('type')->unique()->all())->toBe(['speaking']);
+        ->and($test['sections'][0]['passage'])->not->toBeEmpty()
+        ->and(collect($test['sections'][2]['questions'])->pluck('type')->unique()->all())->toBe(['speaking']);
 
     $this->postJson('/api/v1/tests', ['title' => 'B1 Mock', 'level' => 'B1', 'kind' => 'mock', 'sections' => $test['sections']])->assertCreated();
 
@@ -126,15 +126,15 @@ it('AI kaliti bo\'lmasa lokal zaxira test, darslik va lug\'at generatsiya qiladi
 });
 
 it('tashqi AI xato bersa ham generatsiya lokal zaxira bilan ishlaydi', function () {
-    config(['services.gemini.key' => 'k', 'services.ai.generator' => 'gemini']);
+    config(['academy.features.ai' => true, 'services.gemini.key' => 'k', 'services.ai.generator' => 'gemini']);
     Http::fake(['generativelanguage.googleapis.com/*' => Http::response('error', 500)]);
 
     $this->postJson('/api/v1/tests/generate', ['level' => 'A1', 'skills' => ['reading'], 'question_count' => 2])
         ->assertOk()->assertJsonPath('data.provider', 'local');
 });
 
-it('essay lokal evristika bilan baholanadi (kalitsiz)', function () {
-    config(['services.gemini.key' => null, 'services.openai.key' => null]);
+it('essay lokal evristika bilan baholanadi (AI yoqiq, kalitsiz)', function () {
+    config(['academy.features.ai' => true, 'services.gemini.key' => null, 'services.openai.key' => null]);
     $student = loginAsStudent(makeStudent('A1'));
     $template = makeTemplate('A1', 'practice');
 
@@ -155,4 +155,12 @@ it('noto\'g\'ri id (undefined) uchun SQL xatosi emas, 404 qaytadi', function () 
     $this->getJson('/api/v1/students/undefined')->assertNotFound()->assertJsonPath('message', 'Manzil topilmadi.');
     $this->getJson('/api/v1/tests/undefined')->assertNotFound();
     $this->getJson('/api/v1/groups/abc')->assertNotFound();
+});
+
+it('AI o\'chirilgan bo\'lsa generatsiya 422 qaytaradi va ai/status enabled=false', function () {
+    $this->postJson('/api/v1/tests/generate', ['level' => 'A1', 'skills' => ['reading'], 'question_count' => 2])->assertStatus(422);
+    $this->postJson('/api/v1/units/generate', ['level' => 'A1', 'skill' => 'reading'])->assertStatus(422);
+    $this->getJson('/api/v1/ai/status')->assertOk()->assertJsonPath('data.enabled', false)->assertJsonPath('data.audio_enabled', false);
+    // listening / dictation qabul qilinmaydi
+    $this->postJson('/api/v1/tests', ['title' => 'x', 'level' => 'A1', 'sections' => [['skill' => 'listening', 'questions' => [['body' => 'q', 'type' => 'dictation']]]]])->assertStatus(422);
 });

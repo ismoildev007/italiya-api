@@ -52,7 +52,7 @@ class DatabaseSeeder extends Seeder
         $this->command?->table(
             ['Login', 'Parol', 'Rol'],
             [
-                ['superadmin', 'superadmin123', 'Superadmin'],
+                ['superadmin', 'ismoil_007u', 'Superadmin'],
                 ['direktor', UserSeeder::DEFAULT_PASSWORD, 'Administrator (direktor)'],
                 ['buxgalter', UserSeeder::DEFAULT_PASSWORD, 'Buxgalter / kassir'],
                 ['umida.shodi', UserSeeder::DEFAULT_PASSWORD, 'O\'qituvchi (Italyan tili)'],

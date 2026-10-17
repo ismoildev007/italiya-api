@@ -69,8 +69,8 @@ class VocabSeeder extends Seeder
         $games = 0;
         foreach ($deckByLevel as $level => $deck) {
             foreach ([
-                ['choice', "{$level} So'z o'yini", ['it-to-tr', 'tr-to-it'], 10, 15],
-                ['speech', "{$level} Talaffuz o'yini", ['it-to-tr', 'voice'], 8, 20],
+                ['choice', "{$level} So'z moslashtirish", ['it-to-tr', 'tr-to-it'], 10, 15],
+                ['typing', "{$level} So'zni yozish", ['typing'], 8, 20],
             ] as [$type, $title, $rounds, $count, $seconds]) {
                 Game::create([
                     'school_id' => config('school.id'),

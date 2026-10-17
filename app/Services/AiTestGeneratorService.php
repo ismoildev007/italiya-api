@@ -8,6 +8,7 @@ use App\Models\TestQuestion;
 use App\Models\TestTemplate;
 use App\Services\Ai\AiManager;
 use App\Services\Ai\LocalAi;
+use App\Support\Feature;
 use App\Support\Level;
 
 /**
@@ -35,7 +36,7 @@ class AiTestGeneratorService
     public function generate(array $params): array
     {
         $level = $params['level'];
-        $skills = array_values(array_unique($params['skills'] ?? config('academy.core_skills')));
+        $skills = array_values(array_intersect(array_unique($params['skills'] ?? config('academy.core_skills')), Feature::skills()));
         $count = (int) ($params['question_count'] ?? 5);
         $kind = $params['kind'] ?? TestTemplate::KIND_PRACTICE;
         $track = $params['track'] ?? 'general';

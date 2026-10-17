@@ -9,6 +9,7 @@ use App\Models\TestAttempt;
 use App\Models\TestQuestion;
 use App\Models\TestTemplate;
 use App\Models\User;
+use App\Support\Feature;
 use App\Support\Level;
 use Illuminate\Support\Collection;
 
@@ -211,7 +212,7 @@ class LearningService
                 'media_url' => $section->media_path ? asset('storage/'.$section->media_path) : $section->media_url,
                 'has_media' => $section->hasMedia(),
                 // Audio fayl bo'lmasa brauzer TTS (speechSynthesis, it-IT) shu matnni o'qiydi
-                'tts_text' => $section->hasMedia() ? null : $section->media_script,
+                'tts_text' => Feature::audio() && ! $section->hasMedia() ? $section->media_script : null,
                 'play_state' => $section->hasMedia() ? $this->plays->status($student, $section, $attempt) : null,
                 'time_limit_minutes' => $section->timeLimit(),
                 'started_at' => $progress['started_at'] ?? null,
@@ -276,7 +277,7 @@ class LearningService
             'translation' => $q->translations[$lang] ?? null,
             'score' => (float) $q->score,
             'media_url' => $q->media_path ? asset('storage/'.$q->media_path) : null,
-            'tts_text' => $q->hasMedia() ? null : $q->media_script,
+            'tts_text' => Feature::audio() && ! $q->hasMedia() ? $q->media_script : null,
             'play_state' => $q->hasMedia() ? $this->plays->status($student, $q, $attempt) : null,
             'meta' => $q->meta,
             'options' => $options->map(fn ($o) => ['id' => $o->id, 'body' => $o->body] + ($showAnswers ? ['is_correct' => $o->is_correct] : []))->values(),

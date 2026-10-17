@@ -9,6 +9,7 @@ use App\Http\Requests\CourseUnit\UpdateUnitRequest;
 use App\Http\Resources\CourseUnitResource;
 use App\Models\CourseUnit;
 use App\Services\CourseUnitService;
+use App\Support\Feature;
 use Illuminate\Http\JsonResponse;
 
 /**
@@ -26,6 +27,8 @@ class CourseUnitController extends Controller
     /** AI orqali dars mazmuni (bazaga yozilmaydi) */
     public function generate(GenerateUnitRequest $request): JsonResponse
     {
+        abort_unless(Feature::ai(), 422, 'AI funksiyasi o\'chirilgan. Yoqish uchun .env da AI_ENABLED=true.');
+
         return $this->ok($this->units->generate($request->validated()), 'Dars generatsiya qilindi.');
     }
 
@@ -54,6 +57,8 @@ class CourseUnitController extends Controller
     /** media_script → OpenAI TTS audio */
     public function generateAudio(CourseUnit $unit): JsonResponse
     {
+        abort_unless(Feature::audio(), 422, 'Audio (tinglash) funksiyasi o\'chirilgan.');
+
         $path = $this->units->generateAudio($unit, request()->boolean('force'));
 
         abort_unless($path, 422, 'Audio yaratilmadi: media_script bo\'sh yoki OPENAI_API_KEY sozlanmagan.');

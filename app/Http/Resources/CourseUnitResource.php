@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Support\Feature;
 use Illuminate\Http\Request;
 
 class CourseUnitResource extends BaseResource
@@ -23,7 +24,7 @@ class CourseUnitResource extends BaseResource
             'media_script' => $this->media_script,
             'media_url' => $this->fileUrl($this->media_path) ?: $this->media_url,
             'has_media' => $this->hasMedia(),
-            'tts_text' => $this->hasMedia() ? null : $this->media_script,
+            'tts_text' => Feature::audio() && ! $this->hasMedia() ? $this->media_script : null,
             'max_plays' => $this->max_plays,
             'effective_max_plays' => $this->playsLimit(),
             'time_limit_minutes' => $this->time_limit_minutes,

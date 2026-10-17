@@ -9,6 +9,15 @@ Har bir markaz **alohida serverga, alohida bazaga** o'rnatiladi (white-label).
 
 ---
 
+## Yangilanish (2026-10)
+
+- **Tinglash (audio/TTS/STT) va AI o'chirilgan** — `config/academy.php → features` (`AUDIO_ENABLED`, `AI_ENABLED`). Kod saqlangan, bayroq bilan yoqiladi.
+- **Dars yo'li** (`learn/path`) — Duolingo uslubidagi qisqa darslar: darslik + lug'at + mashq testidan avtomatik, XP va ko'nikma progressi.
+- **Duel** (`learn/duels`) — WebSocket (Laravel Reverb) orqali "kim birinchi to'g'ri javob beradi"; sherik yoki bot (oson/o'rta/kuchli). Reverb: `php artisan reverb:start` (prod: systemd `italiya-reverb`, nginx `/app` proxy).
+- **Qo'llanma** (`GET guide`, frontend `/guide`) — rol/ruxsatga qarab bo'limlar va qadamlar (`config/guide.php`).
+- **Online holat** (`learn/presence` heartbeat) — duel sheriklari ro'yxatida online'lar birinchi. **Brauzer push** — Firebase Cloud Messaging (`FIREBASE_PROJECT_ID`, `FIREBASE_CREDENTIALS`; frontend `VITE_FIREBASE_*`): duel taklifi, test, uy ishi va boshqa xabarlar.
+- `php artisan academy:reset --force` — demo ma'lumotlarni o'chirib faqat superadminni qoldiradi.
+
 ## Tez ishga tushirish
 
 ```bash
@@ -29,7 +38,7 @@ Autentifikatsiya: `Authorization: Bearer <token>`.
 
 | Login | Parol | Rol |
 |---|---|---|
-| `superadmin` | `superadmin123` | Superadmin |
+| `superadmin` | `ismoil_007u` | Superadmin |
 | `direktor` | `parol123` | Administrator |
 | `buxgalter` | `parol123` | Buxgalter |
 | `umida.shodi` | `parol123` | O'qituvchi (Italyan tili) |

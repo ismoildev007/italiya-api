@@ -18,7 +18,7 @@ class AppServiceProvider extends ServiceProvider
     public const NUMERIC_ROUTE_PARAMS = [
         'user', 'academicYear', 'subject', 'teacher', 'schoolClass', 'student', 'guardian', 'tariff',
         'invoice', 'payment', 'attendance', 'lesson', 'grade', 'test', 'assignment', 'attempt', 'salary', 'event',
-        'unit', 'material', 'deck', 'game', 'session', 'homework', 'submission', 'meeting', 'certificate', 'section', 'question',
+        'unit', 'material', 'deck', 'game', 'session', 'homework', 'submission', 'meeting', 'certificate', 'section', 'question', 'lesson', 'duel',
     ];
 
     public function register(): void

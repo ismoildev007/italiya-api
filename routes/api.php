@@ -11,6 +11,7 @@ use App\Http\Controllers\FinanceController;
 use App\Http\Controllers\GameController;
 use App\Http\Controllers\GradeController;
 use App\Http\Controllers\GuardianController;
+use App\Http\Controllers\GuideController;
 use App\Http\Controllers\HomeworkController;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\LearnController;
@@ -20,6 +21,7 @@ use App\Http\Controllers\NotificationEventController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\PortalController;
+use App\Http\Controllers\PushTokenController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\SchoolClassController;
@@ -67,6 +69,12 @@ Route::prefix('v1')->group(function () {
         Route::post('logout', [AuthController::class, 'logout'])->name('auth.logout');
         Route::post('logout-all', [AuthController::class, 'logoutAll'])->name('auth.logout-all');
         Route::post('change-password', [AuthController::class, 'changePassword'])->name('auth.change-password');
+        Route::get('guide', [GuideController::class, 'index'])->name('guide.index');
+        // Brauzer push (Firebase) — har qanday foydalanuvchi
+        Route::get('push/status', [PushTokenController::class, 'status'])->name('push.status');
+        Route::post('push/token', [PushTokenController::class, 'store'])->name('push.store');
+        Route::delete('push/token', [PushTokenController::class, 'destroy'])->name('push.destroy');
+        Route::post('push/test', [PushTokenController::class, 'test'])->name('push.test');
         Route::get('settings', [SettingsController::class, 'show'])->name('settings.show');
         Route::put('settings', [SettingsController::class, 'update'])->name('settings.update');
 
@@ -109,6 +117,26 @@ Route::prefix('v1')->group(function () {
             Route::post('certificate', [LearnController::class, 'issueCertificate']);
             Route::get('certificates', [LearnController::class, 'certificates']);
             Route::get('monthly-report', [LearnController::class, 'monthlyReport']);
+
+            // Dars yo'li (Duolingo uslubidagi qisqa darslar, XP)
+            Route::get('path', [LearnController::class, 'path']);
+            Route::get('path/{level}/{skill}', [LearnController::class, 'lessonIntro']);
+            Route::post('path/{level}/{skill}/start', [LearnController::class, 'lessonStart']);
+            Route::get('lessons/{lesson}', [LearnController::class, 'lesson']);
+            Route::post('lessons/{lesson}/answer', [LearnController::class, 'lessonAnswer']);
+            Route::post('lessons/{lesson}/finish', [LearnController::class, 'lessonFinish']);
+
+            // Duel (WebSocket + polling): sherik yoki bot bilan "kim birinchi"
+            Route::get('duels', [LearnController::class, 'duels']);
+            Route::post('presence', [LearnController::class, 'presence']);
+            Route::get('duels/opponents', [LearnController::class, 'duelOpponents']);
+            Route::post('duels', [LearnController::class, 'duelCreate']);
+            Route::post('duels/join', [LearnController::class, 'duelJoin']);
+            Route::get('duels/{duel}', [LearnController::class, 'duel']);
+            Route::post('duels/{duel}/join', [LearnController::class, 'duelJoin']);
+            Route::post('duels/{duel}/bot', [LearnController::class, 'duelBot']);
+            Route::post('duels/{duel}/answer', [LearnController::class, 'duelAnswer']);
+            Route::post('duels/{duel}/cancel', [LearnController::class, 'duelCancel']);
         });
 
         /* ============ O'quvchi / ota-ona kabineti (read-only) ============ */

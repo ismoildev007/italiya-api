@@ -3,6 +3,7 @@
 namespace App\Http\Requests\CourseUnit;
 
 use App\Http\Requests\BaseRequest;
+use App\Support\Feature;
 use App\Support\Level;
 use Illuminate\Validation\Rule;
 
@@ -17,7 +18,7 @@ class StoreUnitRequest extends BaseRequest
             'level' => ['required', Rule::in(Level::all())],
             'track' => ['nullable', Rule::in(array_keys(config('academy.tracks')))],
             'order' => 'nullable|integer|min:1',
-            'skill' => ['required', Rule::in(array_keys(config('academy.skills')))],
+            'skill' => ['required', Rule::in(Feature::skills())],
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
             'content' => 'nullable|string',

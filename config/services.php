@@ -69,6 +69,12 @@ return [
         'tts_voice' => env('OPENAI_TTS_VOICE', 'alloy'),
     ],
 
+    'firebase' => [
+        // Service account JSON (Firebase Console → Project settings → Service accounts)
+        'credentials' => env('FIREBASE_CREDENTIALS', 'storage/app/firebase.json'),
+        'project_id' => env('FIREBASE_PROJECT_ID'),
+    ],
+
     'telegram' => [
         // Ota-onalar boti: qarzdorlik, oylik hisobot, baho/davomat xabarlari
         'token' => env('TELEGRAM_BOT_TOKEN'),

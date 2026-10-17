@@ -4,6 +4,7 @@ namespace App\Http\Requests\Learn;
 
 use App\Http\Requests\BaseRequest;
 use App\Models\TestTemplate;
+use App\Support\Feature;
 use App\Support\Level;
 use Illuminate\Validation\Rule;
 
@@ -13,7 +14,7 @@ class LearnFilterRequest extends BaseRequest
     {
         return [
             'level' => ['nullable', Rule::in(Level::all())],
-            'skill' => ['nullable', Rule::in(array_keys(config('academy.skills')))],
+            'skill' => ['nullable', Rule::in(Feature::skills())],
             'kind' => ['nullable', Rule::in(TestTemplate::KINDS)],
             'category' => 'nullable|string|max:100',
             'lang' => ['nullable', Rule::in(array_keys(config('academy.translation_languages')))],

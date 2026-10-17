@@ -10,6 +10,7 @@ use App\Http\Requests\Vocab\UpdateDeckRequest;
 use App\Http\Resources\VocabDeckResource;
 use App\Models\VocabDeck;
 use App\Services\VocabService;
+use App\Support\Feature;
 use Illuminate\Http\JsonResponse;
 
 /** Ovozli lug'at: to'plamlar, kartochkalar, AI generatsiya, Excel import, TTS. */
@@ -25,6 +26,8 @@ class VocabDeckController extends Controller
     /** AI orqali so'zlar ro'yxati (bazaga yozilmaydi) */
     public function generate(GenerateCardsRequest $request): JsonResponse
     {
+        abort_unless(Feature::ai(), 422, 'AI funksiyasi o\'chirilgan. Yoqish uchun .env da AI_ENABLED=true.');
+
         return $this->ok(['cards' => $this->vocab->generateCards($request->validated())], 'So\'zlar generatsiya qilindi.');
     }
 
@@ -61,6 +64,8 @@ class VocabDeckController extends Controller
     /** Kartochkalar uchun talaffuz audiosi (OpenAI TTS) */
     public function generateAudio(VocabDeck $deck): JsonResponse
     {
+        abort_unless(Feature::audio(), 422, 'Audio (tinglash) funksiyasi o\'chirilgan.');
+
         $count = $this->vocab->generateAudio($deck, request()->boolean('force'));
 
         return $this->ok(new VocabDeckResource($deck->fresh(['cards'])), "{$count} ta audio yaratildi.");

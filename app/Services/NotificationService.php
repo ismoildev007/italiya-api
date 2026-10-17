@@ -15,6 +15,7 @@ use App\Models\Student;
 use App\Models\StudentBalance;
 use App\Models\TestAssignment;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 
 /**
  * Telegram bot integratsiyasi uchun HODISA GENERATORI (stub).
@@ -221,6 +222,16 @@ class NotificationService
         return $classId ? Student::active()->where('class_id', $classId)->get() : collect();
     }
 
+    /** Brauzer push (Firebase) — sozlanmagan bo'lsa jim o'tadi */
+    private function push(?int $userId, string $title, string $message, string $type, array $payload = []): void
+    {
+        try {
+            app(FirebasePushService::class)->sendToUser($userId, $title, Str::limit($message, 180), ['type' => $type] + array_map('strval', array_filter($payload, 'is_scalar')));
+        } catch (\Throwable $e) {
+            report($e);
+        }
+    }
+
     /**
      * Hodisani o'quvchining o'ziga (Telegram) navbatga qo'yadi.
      */
@@ -232,6 +243,8 @@ class NotificationService
         $source = null,
         array $payload = [],
     ): void {
+        $this->push($student->user_id, $title, $message, $type, $payload);
+
         NotificationEvent::create([
             'school_id' => config('school.id'),
             'type' => $type,
@@ -267,6 +280,8 @@ class NotificationService
         }
 
         foreach ($guardians as $guardian) {
+            $this->push($guardian->user_id, $title, $message, $type, $payload);
+
             NotificationEvent::create([
                 'school_id' => config('school.id'),
                 'type' => $type,

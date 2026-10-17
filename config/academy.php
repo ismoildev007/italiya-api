@@ -10,6 +10,16 @@
 */
 
 return [
+    /*
+    | Funksiya bayroqlari. Mijoz talabi (2026-10): tinglash (audio/TTS/STT) va AI o'chirilgan.
+    | Yoqish uchun .env: AUDIO_ENABLED=true, AI_ENABLED=true (kod saqlangan).
+    */
+    'features' => [
+        'ai' => (bool) env('AI_ENABLED', false),
+        'audio' => (bool) env('AUDIO_ENABLED', false),
+        'duel' => (bool) env('DUEL_ENABLED', true),
+    ],
+
     /* Asosiy o'rganilayotgan til */
     'target_language' => env('ACADEMY_TARGET_LANGUAGE', 'it'),
 
@@ -33,7 +43,6 @@ return [
 
     /* IELTS uslubidagi ko'nikmalar + grammatika va lug'at */
     'skills' => [
-        'listening' => 'Tinglash (Ascolto)',
         'reading' => 'O\'qish (Lettura)',
         'writing' => 'Yozish (Scrittura)',
         'speaking' => 'Gapirish (Parlato)',
@@ -42,7 +51,7 @@ return [
     ],
 
     /* Baholanadigan asosiy 4 ko'nikma (sertifikat va progress uchun) */
-    'core_skills' => ['listening', 'reading', 'writing', 'speaking'],
+    'core_skills' => ['reading', 'writing', 'speaking'],
 
     /* Yo'nalishlar (mockupdagi Tibbiyot / Fermer / Maxsus guruhlar) */
     'tracks' => [
@@ -66,7 +75,6 @@ return [
         ],
         // Bo'limlar bo'yicha standart vaqt (daqiqa) — IELTS uslubida
         'section_minutes' => [
-            'listening' => 20,
             'reading' => 30,
             'writing' => 30,
             'speaking' => 10,
@@ -92,15 +100,32 @@ return [
     /* Qarzdorlik eslatmasi kunlari (har oy) */
     'debt_reminder_days' => array_map('intval', explode(',', env('ACADEMY_DEBT_REMINDER_DAYS', '5,15,25'))),
 
+    /* XP (tajriba ballari) — dars yo'li va duel uchun */
+    'xp' => [
+        'unit_complete' => 10,
+        'exercise_correct' => 2,
+        'test_passed' => 15,
+        'duel_win' => 20,
+        'duel_draw' => 8,
+        'duel_round' => 3,
+        'game_correct' => 1,
+    ],
+
+    /* Duel boti darajalari: javob berish vaqti (soniya, min-max) va aniqlik (0..1) */
+    'duel_bots' => [
+        'easy' => ['title' => 'Oson bot', 'delay' => [7, 12], 'accuracy' => 0.55],
+        'medium' => ['title' => 'O\'rta bot', 'delay' => [4, 8], 'accuracy' => 0.75],
+        'hard' => ['title' => 'Kuchli bot', 'delay' => [2, 5], 'accuracy' => 0.92],
+    ],
+
     /* O'yinlar */
     'games' => [
         'types' => [
             'flashcard' => 'Kartochka (so\'z ↔ tarjima)',
             'match' => 'Juftlash (so\'zni tarjimasi bilan)',
             'choice' => 'Variantli (4 tadan birini tanlash)',
-            'speech' => 'Talaffuz (mikrofon orqali)',
-            'listening' => 'Eshitib yozish (diktant)',
             'typing' => 'Yozib javob berish',
+            'duel' => 'Duel (kim birinchi to\'g\'ri javob beradi)',
         ],
         'default_card_count' => 10,
         'default_seconds_per_card' => 15,

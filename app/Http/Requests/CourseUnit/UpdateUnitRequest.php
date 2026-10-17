@@ -3,6 +3,7 @@
 namespace App\Http\Requests\CourseUnit;
 
 use App\Http\Requests\BaseRequest;
+use App\Support\Feature;
 use App\Support\Level;
 use Illuminate\Validation\Rule;
 
@@ -16,7 +17,7 @@ class UpdateUnitRequest extends BaseRequest
             'level' => ['sometimes', Rule::in(Level::all())],
             'track' => ['nullable', Rule::in(array_keys(config('academy.tracks')))],
             'order' => 'nullable|integer|min:1',
-            'skill' => ['sometimes', Rule::in(array_keys(config('academy.skills')))],
+            'skill' => ['sometimes', Rule::in(Feature::skills())],
             'title' => 'sometimes|string|max:255',
             'description' => 'nullable|string',
             'content' => 'nullable|string',

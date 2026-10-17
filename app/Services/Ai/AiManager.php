@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai;
 
+use App\Support\Feature;
 use InvalidArgumentException;
 
 /**
@@ -35,6 +36,8 @@ class AiManager
         $speech = app(SpeechService::class);
 
         return [
+            'enabled' => Feature::ai(),
+            'audio_enabled' => Feature::audio(),
             'generator' => $this->describe($this->for('generator')),
             'evaluator' => $this->describe($this->for('evaluator')),
             // Tashqi kalit bo'lmasa yoki xato bersa — lokal "oddiy AI" ishlaydi (hech qachon xato qaytarmaydi)
@@ -47,6 +50,10 @@ class AiManager
     /** Tashqi provayder tayyormi (kalit bor) — bo'lmasa lokal zaxira ishlatiladi. */
     public function remoteAvailable(string $purpose): bool
     {
+        if (! Feature::ai()) {
+            return false;
+        }
+
         try {
             return $this->for($purpose)->isConfigured();
         } catch (\Throwable) {

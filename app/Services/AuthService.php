@@ -141,6 +141,8 @@ class AuthService
                 'telegram' => config('school.telegram') ?: null,
             ],
             'academy' => [
+                'features' => config('academy.features'),
+                'xp' => config('academy.xp'),
                 'target_language' => config('academy.target_language'),
                 'levels' => config('academy.levels'),
                 'skills' => config('academy.skills'),

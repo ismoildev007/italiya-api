@@ -4,6 +4,7 @@ namespace App\Http\Requests\Test;
 
 use App\Http\Requests\BaseRequest;
 use App\Models\TestTemplate;
+use App\Support\Feature;
 use App\Support\Level;
 use Illuminate\Validation\Rule;
 
@@ -19,7 +20,7 @@ class IndexTestRequest extends BaseRequest
             'level' => ['nullable', Rule::in(Level::all())],
             'track' => ['nullable', Rule::in(array_keys(config('academy.tracks')))],
             'kind' => ['nullable', Rule::in(TestTemplate::KINDS)],
-            'skill' => ['nullable', Rule::in(array_keys(config('academy.skills')))],
+            'skill' => ['nullable', Rule::in(Feature::skills())],
             'course_unit_id' => 'nullable|exists:course_units,id',
             'generated_by' => 'nullable|in:ai,manual',
             'is_published' => 'nullable|boolean',

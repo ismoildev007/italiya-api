@@ -271,8 +271,59 @@ Ro'yxatda `submissions_count`, `pending_count`.
 
 | Login | Parol | Rol |
 |---|---|---|
-| `superadmin` | `superadmin123` | superadmin |
+| `superadmin` | `ismoil_007u` | superadmin |
 | `direktor` | `parol123` | admin |
 | `umida.shodi` | `parol123` | o'qituvchi |
 | `+998994602923` | `parol123` | o'quvchi (A1-Ertalab) |
 | `ota20000` | `parol123` | ota-ona |
+
+---
+
+## 7. Yangilanish (2026-10-14): tinglash o'chirildi, AI o'chirildi, Dars yo'li, Duel, Qo'llanma
+
+**Funksiya bayroqlari** (`GET me` → `data.academy.features`): `{ ai: false, audio: false, duel: true }`.
+- `audio=false`: `listening` ko'nikmasi, `dictation` savol turi, `voice`/`listening` raund turlari qabul qilinmaydi (422); `…/audio` endpointlari 422; `tts_text` kelmaydi; `learn/units/{id}/play` 422.
+- `ai=false`: `tests/generate`, `units/generate`, `decks/generate` → 422; insho/gapirish javoblari o'qituvchi tekshiruviga tushadi (`status: submitted`). `GET ai/status` → `enabled`, `audio_enabled`.
+- Yoqish: `.env` `AI_ENABLED=true`, `AUDIO_ENABLED=true`.
+
+**XP**: `students.xp` (`GET me` → `student.xp`; `learn/dashboard`, `learn/path`). Manbalar: `config/academy.php → xp`.
+
+### Dars yo'li — `learn/path`
+
+| Method | URL | Javob |
+|---|---|---|
+| GET | `learn/path` | `{current_level, xp, streak_days, duel_wins, levels:[{level,title,unlocked,is_current, skills:[{skill,label,percent,lessons_done,done}]}]}` |
+| GET | `learn/path/{level}/{skill}` | intro: `{title, difficulty: easy\|medium\|hard, exercise_count, minutes, xp, unit}` |
+| POST | `learn/path/{level}/{skill}/start` | sessiya: `{id, total, exercises:[…]}`; daraja ochilmagan → 403 |
+| GET | `learn/lessons/{id}` | joriy holat |
+| POST | `learn/lessons/{id}/answer` | `{no, answer}` → `{correct, expected, xp, progress}` |
+| POST | `learn/lessons/{id}/finish` | `{correct, total, accuracy, xp_earned, xp_total, skill_percent}` — ko'nikma +20% × aniqlik |
+
+Mashq turlari: `match` (`left:[{id,text}]`, `right:[{id,text}]`; javob `{leftId: rightId}`), `choice` (`options[]`, `labels?`, `passage?`), `gap` / `typing` (matn, o'xshashlik ≥0.85), `speak` (`model_answer`, javob `"ok"`).
+
+### Duel — `learn/duels` (WebSocket + polling)
+
+| Method | URL | Izoh |
+|---|---|---|
+| GET | `learn/duels` | `{active[], history[], invites[], stats:{wins,losses,xp}, bots:[{key,title,accuracy}]}` |
+| GET | `learn/duels/opponents?q=` | o'z darajasidagi o'quvchilar `{id,name,level,xp,wins,online}` |
+| POST | `learn/duels` | `{opponent_student_id?, level?}` → state (`waiting`); taklif `student.{id}` kanaliga `duel.invited` |
+| POST | `learn/duels/join` / `learn/duels/{id}/join` | `{code}` yoki id bilan qo'shilish → `active` |
+| POST | `learn/duels/{id}/bot` | `{bot_level: easy\|medium\|hard}` — sherik topilmasa bot |
+| GET | `learn/duels/{id}` | state: `{status, you: host\|opponent, host, opponent{is_bot}, total, current_no, seconds_left, question{no,body,options}, you_answered, round{winner,host_answered,opponent_answered}, rounds[], host_score, opponent_score, winner, xp}` |
+| POST | `learn/duels/{id}/answer` | `{no, answer}` → `{correct, won_round, expected, state}`; raundda bitta javob, noto'g'ri → qulf |
+| POST | `learn/duels/{id}/cancel` | |
+
+Qoidalar: 7 savol (lug'at + testlardagi variantli), raund 20 s, birinchi to'g'ri javob — ochko; bot kechikish/aniqlik `config/academy.php → duel_bots`. XP: g'alaba 20, durang 8, raund 3.
+WebSocket: Laravel Reverb, kanal `private-duel.{id}` hodisa `.duel.updated`, `private-student.{id}` hodisa `.duel.invited`; auth `POST /api/broadcasting/auth` (Bearer). Frontend `src/stores/echo.js`; ulanmasa 2 s polling.
+
+### Qo'llanma — `GET guide`
+`{groups:[{key,title,icon}], sections:[{key,group,title,icon,route,summary,steps[],tips[]}], features}` — rol/ruxsat bo'yicha filtrlangan (`config/guide.php`).
+
+### Online holat va brauzer push (2026-10-14)
+
+- `POST learn/presence` — heartbeat (frontend har 60 s va duel sahifasida). 3 daqiqa ichida heartbeat bo'lgan o'quvchi **online**.
+- `GET learn/duels/opponents` — **avval online, keyin offline** (`online`, `last_seen` maydonlari); frontend ikki guruhda ko'rsatadi, 15 s da yangilanadi.
+- Push (Firebase Cloud Messaging): `GET push/status`, `POST push/token {token, platform}`, `DELETE push/token {token}`, `POST push/test`.
+  Backend `.env`: `FIREBASE_PROJECT_ID`, `FIREBASE_CREDENTIALS` (service account JSON, `storage/app/firebase.json`). Frontend `.env`: `VITE_FIREBASE_*` + `VITE_FIREBASE_VAPID_KEY`; service worker `public/firebase-messaging-sw.js`.
+  Push yuboriladigan hodisalar: duel taklifi (`type: duel_invite`, `duel_id`), test biriktirildi, uy ishi berildi/baholandi, baho, daraja o'zgardi, sertifikat, Zoom, oylik hisobot, qarzdorlik (ota-ona akkaunti bo'lsa). Sozlanmagan bo'lsa jim o'tadi.

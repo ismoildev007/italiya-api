@@ -2,8 +2,8 @@
 
 namespace App\Http\Requests\Test\Concerns;
 
-use App\Models\TestQuestion;
 use App\Models\TestTemplate;
+use App\Support\Feature;
 use App\Support\Level;
 use Illuminate\Validation\Rule;
 
@@ -25,7 +25,7 @@ trait HasQuestionRules
             'level' => [$presence === 'required' ? 'required' : 'sometimes', Rule::in(Level::all())],
             'track' => ['nullable', Rule::in(array_keys(config('academy.tracks')))],
             'kind' => ['nullable', Rule::in(TestTemplate::KINDS)],
-            'skill' => ['nullable', Rule::in(array_keys(config('academy.skills')))],
+            'skill' => ['nullable', Rule::in(Feature::skills())],
             'language' => 'nullable|string|size:2',
             'difficulty' => 'nullable|in:easy,medium,hard,adaptive',
             'generated_by' => 'nullable|in:ai,manual',
@@ -55,7 +55,7 @@ trait HasQuestionRules
             'sections' => 'sometimes|array|min:1',
             'sections.*.id' => 'nullable|integer',
             'sections.*.order' => 'nullable|integer|min:1',
-            'sections.*.skill' => ['required', Rule::in(array_keys(config('academy.skills')))],
+            'sections.*.skill' => ['required', Rule::in(Feature::skills())],
             'sections.*.title' => 'nullable|string|max:255',
             'sections.*.instructions' => 'nullable|string',
             'sections.*.passage' => 'nullable|string',
@@ -78,8 +78,8 @@ trait HasQuestionRules
             "{$prefix}.*.id" => 'nullable|integer',
             "{$prefix}.*.order" => 'nullable|integer|min:1',
             "{$prefix}.*.body" => 'required|string',
-            "{$prefix}.*.type" => ['required', Rule::in(TestQuestion::TYPES)],
-            "{$prefix}.*.skill" => ['nullable', Rule::in(array_keys(config('academy.skills')))],
+            "{$prefix}.*.type" => ['required', Rule::in(Feature::questionTypes())],
+            "{$prefix}.*.skill" => ['nullable', Rule::in(Feature::skills())],
             "{$prefix}.*.answer_mode" => 'nullable|in:written,voice',
             "{$prefix}.*.score" => 'nullable|numeric|min:0|max:100',
             "{$prefix}.*.correct_answer" => 'nullable|string',

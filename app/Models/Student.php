@@ -14,7 +14,7 @@ class Student extends BaseModel
 
     protected $fillable = [
         'school_id', 'user_id', 'class_id', 'level', 'track', 'monthly_hours', 'preferred_language',
-        'telegram_chat_id', 'device_id', 'device_bound_at', 'speech_game_score', 'streak_days',
+        'telegram_chat_id', 'device_id', 'device_bound_at', 'speech_game_score', 'xp', 'duel_wins', 'duel_losses', 'streak_days',
         'last_activity_at', 'student_no', 'firstname', 'lastname',
         'middlename', 'birth_date', 'gender', 'phone', 'address', 'photo',
         'face_id', 'card_id', 'enrolled_at', 'status', 'notes',
@@ -29,6 +29,9 @@ class Student extends BaseModel
             'last_activity_at' => 'datetime',
             'monthly_hours' => 'integer',
             'speech_game_score' => 'integer',
+            'xp' => 'integer',
+            'duel_wins' => 'integer',
+            'duel_losses' => 'integer',
             'streak_days' => 'integer',
         ];
     }
@@ -67,6 +70,19 @@ class Student extends BaseModel
     public function monthlyReports(): HasMany
     {
         return $this->hasMany(MonthlyReport::class);
+    }
+
+    public function lessonSessions(): HasMany
+    {
+        return $this->hasMany(LessonSession::class);
+    }
+
+    /** XP qo'shish (dars yo'li, duel, o'yin) */
+    public function addXp(int $amount): void
+    {
+        if ($amount > 0) {
+            $this->increment('xp', $amount);
+        }
     }
 
     public function levelHistory(): HasMany

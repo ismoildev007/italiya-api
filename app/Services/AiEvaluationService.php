@@ -6,6 +6,7 @@ use App\Models\TestAnswer;
 use App\Models\TestQuestion;
 use App\Services\Ai\AiManager;
 use App\Services\Ai\LocalAi;
+use App\Support\Feature;
 use App\Support\TextSimilarity;
 use Throwable;
 
@@ -24,7 +25,7 @@ class AiEvaluationService
     /** Har doim mavjud: tashqi AI bo'lmasa lokal evristik baholash ishlaydi. */
     public function isAvailable(): bool
     {
-        return true;
+        return Feature::ai();
     }
 
     public function remoteAvailable(): bool

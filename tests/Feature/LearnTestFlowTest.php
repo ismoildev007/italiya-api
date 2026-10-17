@@ -38,7 +38,7 @@ it('o\'quvchi faqat o\'z darajasidagi biriktirilgan testlarni ko\'radi', functio
     $this->getJson('/api/v1/learn/dashboard')->assertOk()->assertJsonPath('data.student.level', 'B1');
 });
 
-it('mock testni faqat 1 marta topshirish mumkin, audio 1 marta eshitiladi', function () {
+it('mock testni faqat 1 marta topshirish mumkin', function () {
     $student = loginAsStudent(makeStudent('A1'));
     $template = makeTemplate('A1', 'mock');
     $assignment = assignTo($template, $student);
@@ -47,15 +47,7 @@ it('mock testni faqat 1 marta topshirish mumkin, audio 1 marta eshitiladi', func
     $attemptId = $view['attempt']['id'];
     $section = $view['sections'][0];
 
-    expect($section['play_state']['limit'])->toBe(1);
-
-    $this->postJson("/api/v1/learn/attempts/{$attemptId}/sections/{$section['id']}/play")
-        ->assertOk()->assertJsonPath('data.remaining', 0)->assertJsonPath('data.locked', true);
-
-    // Ikkinchi marta eshitish — 423 Locked
-    $this->postJson("/api/v1/learn/attempts/{$attemptId}/sections/{$section['id']}/play")->assertStatus(423);
-
-    expect(MediaPlay::count())->toBe(1);
+    expect($section['has_media'])->toBeFalse()->and(MediaPlay::count())->toBe(0);
 
     // Javoblar va topshirish
     $questions = collect($view['sections'])->flatMap(fn ($s) => $s['questions']);
@@ -63,15 +55,16 @@ it('mock testni faqat 1 marta topshirish mumkin, audio 1 marta eshitiladi', func
     $correctOption = collect($choice['options'])->firstWhere('body', 'Marco');
 
     $this->postJson("/api/v1/learn/attempts/{$attemptId}/answer", ['question_id' => $choice['id'], 'selected_option_ids' => [$correctOption['id']]])->assertOk();
-    $this->postJson("/api/v1/learn/attempts/{$attemptId}/answer", ['question_id' => $questions->firstWhere('type', 'dictation')['id'], 'answer_text' => 'mi chiamo marco'])->assertOk();
-    $this->postJson("/api/v1/learn/attempts/{$attemptId}/answer", ['question_id' => $questions->firstWhere('type', 'gap')['id'], 'answer_text' => 'sono'])->assertOk();
+    foreach ($questions->where('type', 'gap') as $gap) {
+        $this->postJson("/api/v1/learn/attempts/{$attemptId}/answer", ['question_id' => $gap['id'], 'answer_text' => $gap['body'] === 'Io _____ Ali.' ? 'sono' : 'chiamo'])->assertOk();
+    }
     $this->postJson("/api/v1/learn/attempts/{$attemptId}/answer", ['question_id' => $questions->firstWhere('type', 'true_false')['id'], 'answer_text' => 'false'])->assertOk();
 
     $result = $this->postJson("/api/v1/learn/attempts/{$attemptId}/submit")->assertOk()->json('data');
 
-    // 3 ta avtomatik to'g'ri (1+1+1), true_false xato, bo'sh essay lokal AI bilan 0 → baholangan
+    // 3 ta avtomatik to'g'ri (1+1+1), true_false xato; AI o'chiq → essay o'qituvchi tekshiruvini kutadi
     expect((float) $result['attempt']['total_score'])->toBe(3.0)
-        ->and($result['attempt']['status'])->toBe(TestAttempt::STATUS_GRADED);
+        ->and($result['attempt']['status'])->toBe(TestAttempt::STATUS_SUBMITTED);
 
     // Mock: ikkinchi urinish taqiqlanadi
     $this->postJson("/api/v1/learn/assignments/{$assignment->id}/start")->assertStatus(422);
@@ -80,7 +73,7 @@ it('mock testni faqat 1 marta topshirish mumkin, audio 1 marta eshitiladi', func
 });
 
 it('mashq testi cheksiz, essay Gemini orqali baholanadi va ko\'nikma progressi yangilanadi', function () {
-    config(['services.gemini.key' => 'test-key', 'services.ai.evaluator' => 'gemini']);
+    config(['academy.features.ai' => true, 'services.gemini.key' => 'test-key', 'services.ai.evaluator' => 'gemini']);
 
     Http::fake([
         'generativelanguage.googleapis.com/*' => Http::response([
