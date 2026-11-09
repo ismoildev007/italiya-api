@@ -18,6 +18,7 @@ class CourseMaterialResource extends BaseResource
             'title' => $this->title,
             'description' => $this->description,
             'url' => $this->file_url,
+            'youtube_id' => $this->youtubeId(),
             'mime' => $this->mime,
             'size' => $this->size,
             'max_plays' => $this->max_plays,

@@ -7,7 +7,7 @@ use App\Support\Feature;
 use App\Support\Level;
 use Illuminate\Validation\Rule;
 
-/** Darslik birligi (level × track × skill). */
+/** Darslik birligi (level × track × skill). Kunlik dars: PDF va ochilish sanasi majburiy. */
 class StoreUnitRequest extends BaseRequest
 {
     public function rules(): array
@@ -23,8 +23,13 @@ class StoreUnitRequest extends BaseRequest
             'description' => 'nullable|string',
             'content' => 'nullable|string',
             'media_script' => 'nullable|string',
+            // Video darslik — YouTube havolasi (yoki boshqa to'g'ridan-to'g'ri audio/video URL)
             'media_url' => 'nullable|url|max:255',
             'media' => 'nullable|file|extensions:mp3,m4a,wav,ogg,oga,webm,mp4,mov,mkv,aac|max:204800',
+            // Kunlik dars PDF'i — yangi darslikda majburiy
+            'pdf' => 'required|file|extensions:pdf|mimetypes:application/pdf,application/x-pdf|max:51200',
+            // O'quvchiga ochilish sanasi — shu kundan oldin ko'rinmaydi
+            'available_on' => 'required|date_format:Y-m-d',
             // necha marta tinglash/ko'rish mumkin (null = cheksiz)
             'max_plays' => 'nullable|integer|min:1|max:20',
             'time_limit_minutes' => 'nullable|integer|min:1|max:180',

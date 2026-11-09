@@ -79,9 +79,11 @@ it('lug\'at to\'plamiga CSV import qiladi', function () {
 });
 
 it('o\'qituvchi darslik yaratadi, tinglash o\'chirilgan — listening darslik qabul qilinmaydi', function () {
-    $this->postJson('/api/v1/units', ['level' => 'A1', 'skill' => 'listening', 'title' => 'Ascolto 1'])->assertStatus(422);
+    $pdf = fn () => UploadedFile::fake()->create('dars.pdf', 20, 'application/pdf');
 
-    $unit = $this->postJson('/api/v1/units', ['level' => 'A1', 'skill' => 'reading', 'title' => 'Lettura 1', 'content' => '# Testo', 'is_published' => true])
+    $this->postJson('/api/v1/units', ['level' => 'A1', 'skill' => 'listening', 'title' => 'Ascolto 1', 'pdf' => $pdf(), 'available_on' => today()->toDateString()])->assertStatus(422);
+
+    $unit = $this->postJson('/api/v1/units', ['level' => 'A1', 'skill' => 'reading', 'title' => 'Lettura 1', 'content' => '# Testo', 'is_published' => true, 'pdf' => $pdf(), 'available_on' => today()->toDateString()])
         ->assertCreated()->json('data');
 
     $student = loginAsStudent(makeStudent('A1'));

@@ -14,6 +14,7 @@ use Illuminate\Http\JsonResponse;
 
 /**
  * Darsliklar (A1..C2 × yo'nalish × ko'nikma): AI generatsiya → o'qituvchi tahriri → nashr.
+ * Kunlik dars: PDF majburiy, video — YouTube havolasi, `available_on` — o'quvchiga ochilish sanasi.
  */
 class CourseUnitController extends Controller
 {
@@ -34,7 +35,7 @@ class CourseUnitController extends Controller
 
     public function store(StoreUnitRequest $request): JsonResponse
     {
-        return $this->created(new CourseUnitResource($this->units->save($request->validated() + ['media' => $request->file('media')])), 'Darslik saqlandi.');
+        return $this->created(new CourseUnitResource($this->units->save($request->validated() + ['media' => $request->file('media'), 'pdf' => $request->file('pdf')])), 'Darslik saqlandi.');
     }
 
     public function show(CourseUnit $unit): JsonResponse
@@ -44,7 +45,7 @@ class CourseUnitController extends Controller
 
     public function update(UpdateUnitRequest $request, CourseUnit $unit): JsonResponse
     {
-        return $this->updated(new CourseUnitResource($this->units->save($request->validated() + ['media' => $request->file('media')], $unit)), 'Darslik yangilandi.');
+        return $this->updated(new CourseUnitResource($this->units->save($request->validated() + ['media' => $request->file('media'), 'pdf' => $request->file('pdf')], $unit)), 'Darslik yangilandi.');
     }
 
     public function destroy(CourseUnit $unit): JsonResponse

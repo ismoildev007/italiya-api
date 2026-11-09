@@ -14,10 +14,12 @@ use App\Support\Level;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * Darsliklar: daraja × yo'nalish × ko'nikma. AI generatsiya, TTS audio,
  * materiallar (video/kitob/fayl) va o'quvchi progressi (necha marta tinglandi).
+ * Kunlik dars: PDF majburiy, `available_on` sanasidan oldin o'quvchiga yashirin.
  */
 class CourseUnitService
 {
@@ -60,6 +62,7 @@ class CourseUnitService
             'content' => $data['content'] ?? $unit?->content,
             'media_script' => $data['media_script'] ?? $unit?->media_script,
             'media_url' => $data['media_url'] ?? $unit?->media_url,
+            'available_on' => $data['available_on'] ?? $unit?->available_on,
             'max_plays' => array_key_exists('max_plays', $data) ? $data['max_plays'] : $unit?->max_plays,
             'time_limit_minutes' => $data['time_limit_minutes'] ?? $unit?->time_limit_minutes,
             'test_template_id' => $data['test_template_id'] ?? $unit?->test_template_id,
@@ -73,6 +76,15 @@ class CourseUnitService
 
         if (! empty($data['media'] ?? null) && $data['media'] instanceof UploadedFile) {
             $unit->update(['media_path' => $data['media']->store("units/{$unit->id}", 'public')]);
+        }
+
+        // Kunlik dars PDF'i — yangisi yuklansa eskisi o'chiriladi
+        if (! empty($data['pdf'] ?? null) && $data['pdf'] instanceof UploadedFile) {
+            if ($unit->pdf_path) {
+                Storage::disk('public')->delete($unit->pdf_path);
+            }
+
+            $unit->update(['pdf_path' => $data['pdf']->store("units/{$unit->id}/pdf", 'public')]);
         }
 
         if (! empty($data['generate_audio']) && filled($unit->media_script) && ! $unit->media_path) {
@@ -250,7 +262,9 @@ class CourseUnitService
         $level = $filters['level'] ?? $student->effectiveLevel();
         $track = $student->effectiveTrack();
 
+        // Kelajakdagi darslar (available_on > bugun) o'quvchiga ko'rinmaydi
         $units = CourseUnit::published()
+            ->available()
             ->forLevel($level, $track)
             ->when($filters['skill'] ?? null, fn ($q, $skill) => $q->where('skill', $skill))
             ->with('practiceTest')
@@ -271,6 +285,7 @@ class CourseUnitService
     public function view(Student $student, CourseUnit $unit): CourseUnit
     {
         abort_unless($unit->is_published, 404);
+        $this->assertAvailable($unit);
 
         $progress = UnitProgress::firstOrCreate(
             ['course_unit_id' => $unit->id, 'student_id' => $student->id],
@@ -291,16 +306,25 @@ class CourseUnitService
     public function play(Student $student, CourseUnit $unit): array
     {
         abort_unless($unit->hasMedia(), 404, 'Bu darslikda audio/video yo\'q.');
+        $this->assertAvailable($unit);
 
         return $this->plays->register($student, $unit);
     }
 
     public function complete(Student $student, CourseUnit $unit): UnitProgress
     {
+        $this->assertAvailable($unit);
+
         return tap(UnitProgress::firstOrCreate(
             ['course_unit_id' => $unit->id, 'student_id' => $student->id],
             ['school_id' => config('school.id')],
         ))->update(['completed_at' => now()]);
+    }
+
+    /** Ochilish sanasi kelmagan dars — o'quvchi uchun 403 */
+    public function assertAvailable(CourseUnit $unit): void
+    {
+        abort_unless($unit->isAvailable(), 403, 'Bu dars hali ochilmagan. Ochilish sanasi: '.$unit->available_on?->format('d.m.Y'));
     }
 
     private function nextOrder(?string $level, string $track): int

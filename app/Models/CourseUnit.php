@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\YouTube;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -9,6 +10,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 /**
  * Darslik birligi: daraja × yo'nalish × ko'nikma. Audio/video materiali
  * `max_plays` marta tinglanadi, keyin yopiladi (unit_progress.plays orqali).
+ * Kunlik dars: PDF (`pdf_path`) majburiy, `available_on` — o'quvchiga ochilish sanasi.
  */
 class CourseUnit extends BaseModel
 {
@@ -16,13 +18,13 @@ class CourseUnit extends BaseModel
 
     protected $fillable = [
         'school_id', 'subject_id', 'teacher_id', 'level', 'track', 'order', 'skill', 'title', 'description',
-        'content', 'media_script', 'media_path', 'media_url', 'max_plays', 'time_limit_minutes',
+        'content', 'media_script', 'media_path', 'media_url', 'pdf_path', 'available_on', 'max_plays', 'time_limit_minutes',
         'test_template_id', 'is_published', 'generated_by', 'ai_model', 'created_by',
     ];
 
     protected function casts(): array
     {
-        return ['is_published' => 'boolean'];
+        return ['is_published' => 'boolean', 'available_on' => 'date'];
     }
 
     public function subject(): BelongsTo
@@ -64,6 +66,31 @@ class CourseUnit extends BaseModel
     public function scopePublished($query)
     {
         return $query->where('is_published', true);
+    }
+
+    /**
+     * O'quvchiga ochiq darsliklar: ochilish sanasi bugun yoki undan oldin
+     * (sanasiz eski darsliklar ham ko'rinadi). Kelajakdagi darslar yashirin.
+     */
+    public function scopeAvailable($query)
+    {
+        return $query->where(fn ($q) => $q->whereNull('available_on')->orWhereDate('available_on', '<=', today()));
+    }
+
+    public function isAvailable(): bool
+    {
+        return $this->available_on === null || $this->available_on->lte(today()->endOfDay());
+    }
+
+    public function hasPdf(): bool
+    {
+        return filled($this->pdf_path);
+    }
+
+    /** media_url YouTube bo'lsa video id'si (frontend iframe uchun) */
+    public function youtubeId(): ?string
+    {
+        return YouTube::id($this->media_url);
     }
 
     public function scopeForLevel($query, ?string $level, ?string $track = null)

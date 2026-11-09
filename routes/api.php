@@ -254,6 +254,8 @@ Route::prefix('v1')->group(function () {
             /* ---------- Ovozli lug'at va o'yinlar ---------- */
             Route::post('decks/generate', [VocabDeckController::class, 'generate']);
             Route::apiResource('decks', VocabDeckController::class)->parameters(['decks' => 'deck']);
+            // Bitta Excel → lug'at + so'z o'yini + mashq testi (testlar va o'yinlar bir xil format)
+            Route::post('decks/import-bundle', [VocabDeckController::class, 'importBundle']);
             Route::post('decks/{deck}/import', [VocabDeckController::class, 'import']);
             Route::post('decks/{deck}/audio', [VocabDeckController::class, 'generateAudio']);
 

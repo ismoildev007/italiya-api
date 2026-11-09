@@ -283,7 +283,7 @@ class LessonPathService
 
     private function unitFor(string $level, string $skill): ?CourseUnit
     {
-        return CourseUnit::published()->where('level', $level)->where('skill', $skill)->orderBy('order')->first();
+        return CourseUnit::published()->available()->where('level', $level)->where('skill', $skill)->orderBy('order')->first();
     }
 
     private function checkMatch(array $exercise, array $given): bool

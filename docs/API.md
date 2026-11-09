@@ -208,7 +208,8 @@ Resursda: `level_title`, `track_title`, `telegram_linked`, `device_bound`, `spee
 |---|---|---|
 | POST | `decks/generate` | `{level, topic?, count?, track?, languages?:["uz","en"]}` → `{cards:[{word, part_of_speech, translations:{uz,en,ru}, example, example_translations, pronunciation}]}` |
 | POST/PUT | `decks` | `{title, level, track?, category?, description?, is_published, cards:[{id?, word, translations:{uz,en,ru}, example, example_translations, category, part_of_speech, pronunciation}]}` |
-| POST | `decks/{id}/import` | multipart `file` (csv/tsv/xlsx): ustunlar `so'z | tarjima(uz) | en | ru | misol | kategoriya`, sarlavha ixtiyoriy |
+| POST | `decks/import-bundle` | multipart `{file (xlsx/csv/tsv), level, track?, title?, category?, course_unit_id?, create_game?=1, create_test?=1, game_type?=choice, card_count?, question_count?, is_published?=1}` → `201 {deck, game\|null, test\|null, imported}`. **Testlar va so'z o'yinlari bitta shu Excel orqali kiritiladi**: `[sarlavha qatorlari]` → `№ \| Italiya so'zi \| O'zbekcha tarjimasi \| Kategoriya` (`italyan_50_soz.xlsx` namunasi; sarlavha qatori avtomatik topiladi, `№` tashlanadi, ixtiyoriy `en`/`ru`/`misol` ustunlari). Natija: lug'at to'plami + `choice` o'yini (so'zlar ≥ 3 bo'lsa) + `practice` test (`single_choice`, 4 variant, it→uz / uz→it navbat bilan; `course_unit_id` berilsa darsga mashq testi sifatida biriktiriladi) |
+| POST | `decks/{id}/import` | multipart `file` (csv/tsv/xlsx) — yuqoridagi bilan bir xil format (sarlavha qatorlari va `№` ustuni avtomatik aniqlanadi); mavjud to'plamga so'z qo'shadi |
 | POST | `decks/{id}/audio` | kartochka talaffuzi (TTS) |
 | POST/PUT | `games` | `{title, type: flashcard\|match\|choice\|speech\|listening\|typing, level, track?, vocab_deck_id?, card_count, seconds_per_card, round_types?:["it-to-tr","tr-to-it","voice","typing","listening"], answer_language?, points_per_correct, is_active}` |
 | GET | `games/{id}/results`, `games/{id}/leaderboard`, `leaderboard?level=&class_id=` | |
@@ -248,7 +249,7 @@ Ro'yxatda `submissions_count`, `pending_count`.
 | Darajalar A1–C2 (3 ustun: video / fayl / uy ishi) | admin | `materials?level=` / `materials?class_id=`, `homeworks`, `units?level=` |
 | | student | `learn/units`, `learn/homeworks` |
 | Listening / Reading / Writing / Speaking modallar | student | `learn/tests` → attempt oqimi (2.3) |
-| Ovozli lug'at (+ Excel) | admin | `decks`, `decks/{id}/import` |
+| Ovozli lug'at (+ Excel) | admin | `decks`, `decks/import-bundle` (Excel → to'plam + o'yin + test), `decks/{id}/import` |
 | | student | `learn/decks/{id}/cards?lang=` |
 | So'zlashuv o'yini + liderbord | admin | `games` |
 | | student | `learn/games`, `learn/game-sessions/*`, `learn/leaderboard` |

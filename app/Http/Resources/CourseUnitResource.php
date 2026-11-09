@@ -3,6 +3,7 @@
 namespace App\Http\Resources;
 
 use App\Support\Feature;
+use App\Support\YouTube;
 use Illuminate\Http\Request;
 
 class CourseUnitResource extends BaseResource
@@ -24,6 +25,14 @@ class CourseUnitResource extends BaseResource
             'media_script' => $this->media_script,
             'media_url' => $this->fileUrl($this->media_path) ?: $this->media_url,
             'has_media' => $this->hasMedia(),
+            // Video darslik YouTube'da — frontend iframe orqali ko'rsatadi
+            'youtube_id' => $this->youtubeId(),
+            'youtube_embed_url' => YouTube::embedUrl($this->media_url),
+            // Kunlik dars PDF'i va ochilish sanasi
+            'pdf_url' => $this->fileUrl($this->pdf_path),
+            'has_pdf' => $this->hasPdf(),
+            'available_on' => $this->available_on?->toDateString(),
+            'is_available' => $this->isAvailable(),
             'tts_text' => Feature::audio() && ! $this->hasMedia() ? $this->media_script : null,
             'max_plays' => $this->max_plays,
             'effective_max_plays' => $this->playsLimit(),

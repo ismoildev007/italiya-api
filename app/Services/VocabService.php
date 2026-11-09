@@ -11,6 +11,7 @@ use App\Services\Ai\LocalAi;
 use App\Services\Ai\SpeechService;
 use App\Support\Level;
 use App\Support\SpreadsheetReader;
+use App\Support\VocabSheetParser;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
@@ -118,8 +119,8 @@ class VocabService
     }
 
     /**
-     * Excel/CSV import: so'z | tarjima (uz) | [en] | [ru] | [misol] | [kategoriya].
-     * Sarlavha qatori avtomatik aniqlanadi. Qo'shilgan kartalar sonini qaytaradi.
+     * Excel/CSV import — testlar va o'yinlar bilan bir xil format (VocabSheetParser):
+     * [sarlavha qatorlari] → № | so'z | tarjima (uz) | kategoriya | [en] | [ru] | [misol].
      */
     public function import(VocabDeck $deck, UploadedFile $file): int
     {
@@ -127,62 +128,41 @@ class VocabService
 
         abort_if(count($rows) < 1, 422, 'Fayl bo\'sh.');
 
-        $header = array_map(fn ($v) => mb_strtolower(trim((string) $v)), $rows[0]);
-        $hasHeader = collect($header)->contains(fn ($h) => preg_match('/so.?z|word|parola|italy/u', $h))
-            && collect($header)->contains(fn ($h) => preg_match('/tarjima|translation|javob|uzbek|o.?zbek/u', $h));
+        $parsed = VocabSheetParser::parse($rows);
 
-        $map = ['word' => 0, 'uz' => 1, 'en' => null, 'ru' => null, 'example' => null, 'category' => null];
+        abort_if($parsed['items'] === [], 422, 'Faylda so\'z | tarjima ustunlari topilmadi.');
 
-        if ($hasHeader) {
-            foreach ($header as $i => $h) {
-                match (true) {
-                    (bool) preg_match('/^(en|eng|english|ingliz)/u', $h) => $map['en'] = $i,
-                    (bool) preg_match('/^(ru|rus|russian|русск)/u', $h) => $map['ru'] = $i,
-                    (bool) preg_match('/misol|example|esempio/u', $h) => $map['example'] = $i,
-                    (bool) preg_match('/kategor|category|mavzu/u', $h) => $map['category'] = $i,
-                    default => null,
-                };
-            }
-            $rows = array_slice($rows, 1);
-        } else {
-            $map['en'] = 2;
-            $map['ru'] = 3;
-            $map['example'] = 4;
-            $map['category'] = 5;
-        }
+        $added = $this->appendCards($deck, $parsed['items']);
 
+        $deck->update(['generated_by' => 'import']);
+        $deck->recount();
+
+        return $added;
+    }
+
+    /**
+     * Tayyor so'zlar ro'yxatini to'plamga qo'shadi.
+     *
+     * @param  array<int, array{word: string, translations: array<string, string>, example: ?string, category: ?string}>  $items
+     */
+    public function appendCards(VocabDeck $deck, array $items): int
+    {
         $order = (int) $deck->cards()->max('order');
         $added = 0;
 
-        foreach ($rows as $row) {
-            $word = trim((string) ($row[$map['word']] ?? ''));
-            $uz = trim((string) ($row[$map['uz']] ?? ''));
-
-            if ($word === '' || $uz === '') {
-                continue;
-            }
-
-            $translations = array_filter([
-                'uz' => $uz,
-                'en' => $map['en'] !== null ? trim((string) ($row[$map['en']] ?? '')) : '',
-                'ru' => $map['ru'] !== null ? trim((string) ($row[$map['ru']] ?? '')) : '',
-            ]);
-
+        foreach ($items as $item) {
             VocabCard::create([
                 'school_id' => config('school.id'),
                 'vocab_deck_id' => $deck->id,
                 'order' => ++$order,
-                'word' => $word,
-                'translations' => $translations,
-                'example' => $map['example'] !== null ? (trim((string) ($row[$map['example']] ?? '')) ?: null) : null,
-                'category' => $map['category'] !== null ? (trim((string) ($row[$map['category']] ?? '')) ?: $deck->category) : $deck->category,
+                'word' => $item['word'],
+                'translations' => $item['translations'],
+                'example' => $item['example'] ?? null,
+                'category' => $item['category'] ?? $deck->category,
             ]);
 
             $added++;
         }
-
-        $deck->update(['generated_by' => 'import']);
-        $deck->recount();
 
         return $added;
     }

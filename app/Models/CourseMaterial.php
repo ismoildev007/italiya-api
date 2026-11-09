@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\YouTube;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -25,6 +26,12 @@ class CourseMaterial extends BaseModel
     public function schoolClass(): BelongsTo
     {
         return $this->belongsTo(SchoolClass::class, 'class_id');
+    }
+
+    /** Havola YouTube bo'lsa video id'si */
+    public function youtubeId(): ?string
+    {
+        return $this->path ? null : YouTube::id($this->url);
     }
 
     public function getFileUrlAttribute(): ?string

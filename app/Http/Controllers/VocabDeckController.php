@@ -3,12 +3,16 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\Vocab\GenerateCardsRequest;
+use App\Http\Requests\Vocab\ImportBundleRequest;
 use App\Http\Requests\Vocab\ImportDeckRequest;
 use App\Http\Requests\Vocab\IndexDeckRequest;
 use App\Http\Requests\Vocab\StoreDeckRequest;
 use App\Http\Requests\Vocab\UpdateDeckRequest;
+use App\Http\Resources\GameResource;
+use App\Http\Resources\TestTemplateResource;
 use App\Http\Resources\VocabDeckResource;
 use App\Models\VocabDeck;
+use App\Services\VocabImportService;
 use App\Services\VocabService;
 use App\Support\Feature;
 use Illuminate\Http\JsonResponse;
@@ -59,6 +63,22 @@ class VocabDeckController extends Controller
         $added = $this->vocab->import($deck, $request->file('file'));
 
         return $this->ok(new VocabDeckResource($deck->fresh(['cards'])), "{$added} ta so'z qo'shildi.");
+    }
+
+    /**
+     * Bitta Excel/CSV → to'plam + so'z o'yini + mashq testi.
+     * Format: [sarlavha] → № | Italiya so'zi | O'zbekcha tarjimasi | Kategoriya.
+     */
+    public function importBundle(ImportBundleRequest $request, VocabImportService $import): JsonResponse
+    {
+        $result = $import->importBundle($request->file('file'), $request->validated());
+
+        return $this->created([
+            'deck' => new VocabDeckResource($result['deck']),
+            'game' => $result['game'] ? new GameResource($result['game']) : null,
+            'test' => $result['test'] ? new TestTemplateResource($result['test']) : null,
+            'imported' => $result['imported'],
+        ], "{$result['imported']} ta so'z yuklandi".($result['game'] ? ', o\'yin' : '').($result['test'] ? ', test' : '').' yaratildi.');
     }
 
     /** Kartochkalar uchun talaffuz audiosi (OpenAI TTS) */
