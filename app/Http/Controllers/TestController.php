@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\Test\AssignTestRequest;
 use App\Http\Requests\Test\GenerateTestRequest;
 use App\Http\Requests\Test\GradeAttemptRequest;
+use App\Http\Requests\Test\ImportTestRequest;
 use App\Http\Requests\Test\IndexAssignmentRequest;
 use App\Http\Requests\Test\IndexTestRequest;
 use App\Http\Requests\Test\StoreTestRequest;
@@ -17,7 +18,11 @@ use App\Models\TestAttempt;
 use App\Models\TestTemplate;
 use App\Services\AiTestGeneratorService;
 use App\Services\TestService;
+use App\Services\VocabImportService;
 use App\Support\Feature;
+use App\Support\SpreadsheetReader;
+use App\Support\TestSheetParser;
+use App\Support\VocabSheetParser;
 use Illuminate\Http\JsonResponse;
 
 /**
@@ -45,6 +50,38 @@ class TestController extends Controller
         abort_unless(Feature::ai(), 422, 'AI funksiyasi o\'chirilgan. Yoqish uchun .env da AI_ENABLED=true.');
 
         return $this->ok($ai->generate($request->validated()), 'Savollar generatsiya qilindi.');
+    }
+
+    /**
+     * Excel/CSV dan savollar ro'yxati — BAZAGA YOZILMAYDI. O'qituvchi ro'yxatda
+     * to'g'ri javoblarni belgilab (radio / checkbox), keyin `store` bilan saqlaydi.
+     * Lug'at formatidagi fayl (so'z | tarjima) berilsa variantli savollar avtomatik tuziladi.
+     */
+    public function importPreview(ImportTestRequest $request, VocabImportService $vocabImport): JsonResponse
+    {
+        $file = $request->file('file');
+        $rows = SpreadsheetReader::read($file->getRealPath(), $file->getClientOriginalExtension());
+
+        abort_if(count($rows) < 1, 422, 'Fayl bo\'sh.');
+
+        $vocab = VocabSheetParser::parse($rows);
+
+        if (count($vocab['items']) >= 2 && VocabSheetParser::hasHeader($rows)) {
+            $count = min($request->integer('question_count') ?: min(count($vocab['items']), 30), count($vocab['items']));
+
+            return $this->ok([
+                'source' => 'vocabulary',
+                'title' => $vocab['title'],
+                'questions' => $vocabImport->buildQuestions($vocab['items'], $count),
+                'unmarked' => 0,
+            ], count($vocab['items']).' ta so\'zdan '.$count.' ta savol tuzildi.');
+        }
+
+        $parsed = TestSheetParser::parse($rows);
+
+        abort_if($parsed['questions'] === [], 422, 'Faylda savollar topilmadi. Format: Savol | A | B | C | D | To\'g\'ri javob.');
+
+        return $this->ok(['source' => 'questions'] + $parsed, count($parsed['questions']).' ta savol o\'qildi.');
     }
 
     /** 4-bosqich: yakuniy variantni shablon sifatida saqlash */

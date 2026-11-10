@@ -71,6 +71,12 @@ final class VocabSheetParser
         return ['title' => $title, 'description' => $description, 'items' => $items];
     }
 
+    /** Faylda lug'at sarlavhasi (so'z + tarjima ustunlari) bormi — test faylidan ajratish uchun */
+    public static function hasHeader(array $rows): bool
+    {
+        return self::findHeaderRow($rows) !== null;
+    }
+
     /**
      * Sarlavha qatori: "so'z/word/parola/italy" va "tarjima/translation/o'zbek" ustunlari bo'lgan qator.
      *

@@ -242,6 +242,8 @@ Route::prefix('v1')->group(function () {
 
             /* ---------- Testlar va AI (IELTS uslubi) ---------- */
             Route::post('tests/generate', [TestController::class, 'generate']);
+            // Excel/CSV → savollar ro'yxati (saqlanmaydi; o'qituvchi to'g'ri javobni belgilab POST tests ga yuboradi)
+            Route::post('tests/import-preview', [TestController::class, 'importPreview']);
             Route::apiResource('tests', TestController::class)->parameters(['tests' => 'test']);
             Route::post('tests/{test}/audio', [TestController::class, 'generateAudio']);
             Route::post('tests/{test}/publish', [TestController::class, 'publish']);
